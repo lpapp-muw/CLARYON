@@ -17,9 +17,9 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | CURRENT_PHASE: 1 |
-| **Last completed item** | Phase 0 gate passed — all 50 unit tests green, CLI works, pip install works |
-| **Next item to build** | `claryon/io/tabular.py` (Phase 1, item 1) |
+| **Phase** | CURRENT_PHASE: 2 |
+| **Last completed item** | Phase 1 gate passed — 102 tests green, all IO loaders + encoding + preprocessing done |
+| **Next item to build** | `claryon/models/classical/xgboost_.py` (Phase 2, item 1) |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
@@ -91,6 +91,12 @@
 - Phase 0 validation script passes (TIER 1)
 - Tagged v0.0.0
 - Phase 0 gate: PASSED
+- Implemented all Phase 1 modules: io/tabular.py, io/nifti.py, io/tiff.py, io/fdb_ldb.py, encoding/amplitude.py, preprocessing/tabular_prep.py, preprocessing/splits.py, preprocessing/radiomics.py, preprocessing/image_prep.py
+- Created __init__.py for all sub-packages
+- 52 new tests written (102 total passing)
+- Phase 1 validation (Tier 1+2) passed
+- Phase 1 gate: PASSED
+- Tagged v0.1.0
 
 ---
 
