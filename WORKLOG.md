@@ -17,9 +17,9 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | CURRENT_PHASE: 6 |
-| **Last completed item** | Phase 5 gate passed — 139 tests, SHAP/LIME/GradCAM working |
-| **Next item to build** | `claryon/evaluation/metrics.py` (Phase 6, item 1) |
+| **Phase** | CURRENT_PHASE: 7 |
+| **Last completed item** | Phase 6 gate passed — 163 tests, metrics/comparator/figures/reporting done |
+| **Next item to build** | Phase 7 — CI, Docker, docs, full integration |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
