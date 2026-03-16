@@ -17,9 +17,9 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | CURRENT_PHASE: 4 |
-| **Last completed item** | Phase 3 gate passed — 127 tests, quantum models (kernel_svm, qcnn_muw, qcnn_alt) working |
-| **Next item to build** | `claryon/models/classical/cnn_2d.py` (Phase 4, item 1) |
+| **Phase** | CURRENT_PHASE: 5 |
+| **Last completed item** | Phase 4 gate passed — 132 tests, 2D/3D CNN + late fusion working |
+| **Next item to build** | `claryon/explainability/shap_.py` (Phase 5, item 1) |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
