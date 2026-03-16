@@ -17,9 +17,9 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | CURRENT_PHASE: 2 |
-| **Last completed item** | All classical models + ensemble implemented, 117 tests green |
-| **Next item to build** | `claryon/pipeline.py` flesh out (Phase 2, item 11) — classical pipeline integration |
+| **Phase** | CURRENT_PHASE: 3 |
+| **Last completed item** | Phase 2 gate passed — 119 tests, classical pipeline end-to-end works |
+| **Next item to build** | `claryon/encoding/angle.py` (Phase 3, item 1) |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
@@ -97,6 +97,13 @@
 - Phase 1 validation (Tier 1+2) passed
 - Phase 1 gate: PASSED
 - Tagged v0.1.0
+- Implemented all Phase 2 modules: XGBoost, LightGBM, CatBoost, MLP, TabPFN, DEBI-NN wrapper, stubs (TabM, RealMLP, ModernNCA), ensemble, pipeline stages 1-4
+- Fixed .gitignore models/ pattern that was excluding claryon/models/
+- Classical pipeline integration test: config → load → split → train → predict → write
+- 17 new tests (119 total passing)
+- Phase 2 validation (Tier 1+2+3) passed
+- Phase 2 gate: PASSED
+- Tagged v0.2.0
 
 ---
 
