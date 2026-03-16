@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claryon"
+version = "0.1.0"
+description = "CLassical-quantum AI for Reproducible Explainable OpeN-source medicine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "L. Papp", email = "laszlo.papp@meduniwien.ac.at"},
+]
+keywords = ["quantum", "machine-learning", "medical-imaging", "explainability", "benchmark"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    "joblib>=1.3",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+quantum = ["pennylane>=0.35"]
+quantum-qiskit = ["qiskit>=1.0"]
+imaging = ["nibabel>=5.0", "tifffile>=2023.7"]
+radiomics = ["pyradiomics>=3.0"]
+monai = ["monai>=1.3", "torch>=2.0", "torchvision>=0.15"]
+torch = ["torch>=2.0", "torchvision>=0.15"]
+boosting = ["xgboost>=2.0", "lightgbm>=4.0", "catboost>=1.2"]
+tabular-dl = ["tabpfn>=0.1"]
+explain = ["shap>=0.44", "lime>=0.2"]
+report = ["jinja2>=3.1", "matplotlib>=3.7", "seaborn>=0.13"]
+dev = [
+    "pytest>=7.4",
+    "pytest-timeout>=2.2",
+    "ruff>=0.3",
+]
+all = [
+    "claryon[quantum,imaging,radiomics,torch,boosting,explain,report,dev]",
+]
+
+[project.scripts]
+claryon = "claryon.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["claryon*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 300
+addopts = "-x -q"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
