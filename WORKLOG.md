@@ -17,9 +17,9 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | CURRENT_PHASE: 3 |
-| **Last completed item** | Phase 2 gate passed — 119 tests, classical pipeline end-to-end works |
-| **Next item to build** | `claryon/encoding/angle.py` (Phase 3, item 1) |
+| **Phase** | CURRENT_PHASE: 4 |
+| **Last completed item** | Phase 3 gate passed — 127 tests, quantum models (kernel_svm, qcnn_muw, qcnn_alt) working |
+| **Next item to build** | `claryon/models/classical/cnn_2d.py` (Phase 4, item 1) |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
@@ -104,6 +104,12 @@
 - Phase 2 validation (Tier 1+2+3) passed
 - Phase 2 gate: PASSED
 - Tagged v0.2.0
+- Implemented Phase 3: angle encoding, kernel_svm, qcnn_muw, qcnn_alt (PORT from [E]), VQC/hybrid stubs
+- Quantum smoke tests: 4 qubits, 2 epochs, 10-20 samples — all passing
+- 8 new tests (127 total)
+- Phase 3 validation (Tier 1-4) passed
+- Phase 3 gate: PASSED
+- Tagged v0.3.0
 
 ---
 
