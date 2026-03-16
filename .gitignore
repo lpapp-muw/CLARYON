@@ -21,8 +21,9 @@ Thumbs.db
 
 # Project runtime artifacts
 Results/
-models/
+/models/
 outputs/
+catboost_info/
 *.log
 !scripts/*.sh
 
