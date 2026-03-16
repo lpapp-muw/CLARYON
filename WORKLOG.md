@@ -17,12 +17,12 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | 0 — not started |
-| **Last completed item** | Project rename to CLARYON + Requirements v0.3.1 + Implementation Plan v0.1.1 |
-| **Next item to build** | `pyproject.toml` (Phase 0, item 1) |
+| **Phase** | CURRENT_PHASE: 1 |
+| **Last completed item** | Phase 0 gate passed — all 50 unit tests green, CLI works, pip install works |
+| **Next item to build** | `claryon/io/tabular.py` (Phase 1, item 1) |
 | **Blockers** | None |
 | **Open questions** | None |
-| **Active chat** | Chat 2 (2026-03-16) — naming decision, no code yet |
+| **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
 
 ---
 
@@ -79,6 +79,18 @@
 - Package name: `claryon` (`pip install claryon`)
 - EANM-AI-QC repo retained as educational hub (no code)
 - CLARYON repo is the sole engineering artifact
+
+### Session 3 — 2026-03-16
+
+**Scope**: Phase 0 completion + Phase 1 build.
+
+**Completed**:
+- Verified all Phase 0 items already implemented from prior scaffold commit
+- All 50 unit tests passing: registry, determinism, config_schema, io/base, io/predictions, encoding/base, models/base, explainability/base
+- `pip install -e .` succeeds, `claryon --help` works
+- Phase 0 validation script passes (TIER 1)
+- Tagged v0.0.0
+- Phase 0 gate: PASSED
 
 ---
 
