@@ -1,0 +1,51 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project runtime artifacts
+Results/
+models/
+outputs/
+*.log
+!scripts/*.sh
+
+# Validation logs (regenerated on every run)
+validation_*.log
+fix_log.txt
+
+# BLOCKED sentinel
+BLOCKED
+
+# Benchmark runtime data (downloaded datasets)
+benchmark_data/
+downloaded_datasets/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Do NOT ignore:
+# tests/fixtures/data/  ← committed synthetic test data
+# source_archive/       ← committed reference source files
+# CLAUDE.md             ← committed orchestration file
