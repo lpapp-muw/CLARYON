@@ -1,0 +1,46 @@
+experiment:
+  name: tabular_binary_example
+  seed: 42
+  results_dir: Results/tabular_binary
+
+data:
+  tabular:
+    path: data/train.csv
+    label_col: label
+    sep: ";"
+
+cv:
+  strategy: kfold
+  n_folds: 5
+  seeds: [42, 123, 456]
+
+models:
+  - name: xgboost
+    type: tabular
+    params:
+      n_estimators: 500
+  - name: lightgbm
+    type: tabular
+  - name: catboost
+    type: tabular
+    params:
+      iterations: 500
+  - name: mlp
+    type: tabular
+    params:
+      hidden_layer_sizes: [128, 64]
+      max_iter: 500
+
+explainability:
+  shap: true
+  lime: true
+  max_features: 32
+
+evaluation:
+  metrics: [bacc, auc, sensitivity, specificity]
+  statistical_tests: [friedman]
+
+reporting:
+  markdown: true
+  latex: false
+  figures: true

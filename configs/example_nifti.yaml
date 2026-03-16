@@ -1,0 +1,29 @@
+experiment:
+  name: nifti_classification
+  seed: 42
+  results_dir: Results/nifti
+
+data:
+  imaging:
+    path: data/nifti_masked
+    format: nifti
+    mask_pattern: "*mask*"
+
+cv:
+  strategy: kfold
+  n_folds: 3
+  seeds: [42]
+
+models:
+  - name: cnn_3d
+    type: imaging
+    params:
+      n_conv_layers: 3
+      epochs: 20
+      batch_size: 4
+
+evaluation:
+  metrics: [bacc, auc]
+
+reporting:
+  markdown: true

@@ -1,0 +1,26 @@
+Bootstrap: docker
+From: python:3.11-slim
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends build-essential
+    pip install --no-cache-dir numpy pandas scikit-learn scipy pyyaml pydantic
+    pip install --no-cache-dir pennylane xgboost lightgbm catboost
+    pip install --no-cache-dir nibabel tifffile shap lime
+    pip install --no-cache-dir jinja2 matplotlib seaborn
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+%files
+    claryon/ /app/claryon/
+    pyproject.toml /app/pyproject.toml
+    configs/ /app/configs/
+    scripts/ /app/scripts/
+
+%post
+    cd /app && pip install --no-cache-dir -e .
+
+%runscript
+    exec claryon "$@"
+
+%labels
+    Author CLARYON Team
+    Version 0.7.0
