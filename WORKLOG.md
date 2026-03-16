@@ -18,8 +18,8 @@
 | Field | Value |
 |---|---|
 | **Phase** | CURRENT_PHASE: 2 |
-| **Last completed item** | Phase 1 gate passed — 102 tests green, all IO loaders + encoding + preprocessing done |
-| **Next item to build** | `claryon/models/classical/xgboost_.py` (Phase 2, item 1) |
+| **Last completed item** | All classical models + ensemble implemented, 117 tests green |
+| **Next item to build** | `claryon/pipeline.py` flesh out (Phase 2, item 11) — classical pipeline integration |
 | **Blockers** | None |
 | **Open questions** | None |
 | **Active chat** | Chat 3 (2026-03-16) — Phase 0 complete, starting Phase 1 |
