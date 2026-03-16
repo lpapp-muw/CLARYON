@@ -1,0 +1,35 @@
+experiment:
+  name: iris_classical
+  seed: 42
+  results_dir: Results/iris_classical
+
+data:
+  tabular:
+    path: /home/laszlo/claryon/demo_data/iris/iris.csv
+    label_col: label
+    id_col: Key
+    sep: ";"
+
+cv:
+  strategy: kfold
+  n_folds: 5
+  seeds: [42]
+
+models:
+  - name: xgboost
+    type: tabular
+    params:
+      n_estimators: 100
+  - name: lightgbm
+    type: tabular
+  - name: catboost
+    type: tabular
+    params:
+      iterations: 100
+      verbose: 0
+
+evaluation:
+  metrics: [bacc, auc, sensitivity, specificity]
+
+reporting:
+  markdown: true

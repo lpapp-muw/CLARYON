@@ -1,0 +1,28 @@
+experiment:
+  name: nifti_cnn
+  seed: 42
+  results_dir: Results/nifti_cnn
+
+data:
+  imaging:
+    path: /home/laszlo/claryon/demo_data/nifti_demo
+    format: nifti
+    mask_pattern: "*mask*"
+
+cv:
+  strategy: kfold
+  n_folds: 3
+  seeds: [42]
+
+models:
+  - name: cnn_3d
+    type: imaging
+    params:
+      epochs: 10
+      batch_size: 4
+
+evaluation:
+  metrics: [bacc, auc]
+
+reporting:
+  markdown: true

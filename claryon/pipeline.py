@@ -49,6 +49,13 @@ def _import_model_modules() -> None:
         "claryon.models.classical.tabm_",
         "claryon.models.classical.realmlp_",
         "claryon.models.classical.modernnca_",
+        "claryon.models.classical.cnn_2d",
+        "claryon.models.classical.cnn_3d",
+        "claryon.models.quantum.kernel_svm",
+        "claryon.models.quantum.qcnn_muw",
+        "claryon.models.quantum.qcnn_alt",
+        "claryon.models.quantum.vqc",
+        "claryon.models.quantum.hybrid",
     ]
     for mod in modules:
         importlib.import_module(mod)
@@ -166,7 +173,17 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
 
                 try:
                     model = model_cls(**model_entry.params)
-                    model.fit(X_train, y_train, ds.task_type)
+
+                    # Amplitude-encode for quantum models
+                    X_tr_use, X_te_use = X_train, X_test
+                    if model_entry.type == "tabular_quantum":
+                        from .encoding.amplitude import amplitude_encode_matrix
+                        X_tr_use, enc_info = amplitude_encode_matrix(X_train)
+                        X_te_use, _ = amplitude_encode_matrix(X_test, pad_len=enc_info.encoded_dim)
+                        logger.info("  Amplitude encoded: %d features -> %d (qubits=%d)",
+                                    X_train.shape[1], enc_info.encoded_dim, enc_info.n_qubits)
+
+                    model.fit(X_tr_use, y_train, ds.task_type)
 
                     if ds.task_type == TaskType.REGRESSION:
                         predicted = model.predict(X_test)
