@@ -37,12 +37,32 @@ RESULTS_TEMPLATE = r"""
 Model {% for m in metrics %}& {{ m }} {% endfor %}\\
 \hline
 {% for row in results %}
-{{ row.model }} {% for m in metrics %}& {{ row[m] | round(4) }} {% endfor %}\\
+{{ row.model }} {% for m in metrics %}& {{ format_metric(row, m) }} {% endfor %}\\
 {% endfor %}
 \hline
 \end{tabular}
 \end{table}
 """
+
+
+def _format_metric_latex(row: dict, metric: str) -> str:
+    """Format a metric value as 'mean $\\pm$ std' for LaTeX."""
+    import math
+    val = row.get(metric, float("nan"))
+    std_key = f"{metric}_std"
+    std = row.get(std_key)
+    try:
+        if math.isnan(val):
+            return "NaN"
+    except (TypeError, ValueError):
+        return str(val)
+    if std is not None:
+        try:
+            if not math.isnan(std):
+                return f"{val:.4f} $\\pm$ {std:.4f}"
+        except (TypeError, ValueError):
+            pass
+    return f"{val:.4f}"
 
 
 def render_latex_report(
@@ -67,6 +87,7 @@ def render_latex_report(
         loader=jinja2.BaseLoader(),
         undefined=jinja2.StrictUndefined,
     )
+    env.globals["format_metric"] = _format_metric_latex
     template = env.from_string(template_str)
     rendered = template.render(**context)
 
