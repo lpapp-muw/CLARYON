@@ -21,9 +21,29 @@ MD_TEMPLATE = """# {{ experiment_name }} — Results Report
 
 | Model {% for m in metrics %}| {{ m }} {% endfor %}|
 |---{% for m in metrics %}|---{% endfor %}|
-{% for row in results %}| {{ row.model }} {% for m in metrics %}| {{ "%.4f" | format(row[m]) }} {% endfor %}|
+{% for row in results %}| {{ row.model }} {% for m in metrics %}| {{ format_metric(row, m) }} {% endfor %}|
 {% endfor %}
 """
+
+
+def _format_metric(row: Dict[str, Any], metric: str) -> str:
+    """Format a metric value as 'mean ± std' if std is available."""
+    import math
+    val = row.get(metric, float("nan"))
+    std_key = f"{metric}_std"
+    std = row.get(std_key)
+    try:
+        if math.isnan(val):
+            return "NaN"
+    except (TypeError, ValueError):
+        return str(val)
+    if std is not None:
+        try:
+            if not math.isnan(std):
+                return f"{val:.4f} ± {std:.4f}"
+        except (TypeError, ValueError):
+            pass
+    return f"{val:.4f}"
 
 
 def generate_markdown_report(
@@ -58,6 +78,7 @@ def generate_markdown_report(
         loader=jinja2.BaseLoader(),
         undefined=jinja2.StrictUndefined,
     )
+    env.globals["format_metric"] = _format_metric
     template = env.from_string(MD_TEMPLATE)
     rendered = template.render(
         experiment_name=experiment_name,
