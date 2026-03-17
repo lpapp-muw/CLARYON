@@ -781,40 +781,34 @@ def stage_report(config: ClaryonConfig, state: PipelineState) -> None:
                 output_path=results_dir / "methods.tex",
             )
 
-    # --- Results table ---
-    if config.reporting.latex:
-        metrics_csv = results_dir / "metrics_summary.csv"
-        if metrics_csv.exists():
+    # --- Load metrics from CSV for report generation ---
+    metrics_csv = results_dir / "metrics_summary.csv"
+    if metrics_csv.exists():
+        import pandas as pd
+        df = pd.read_csv(metrics_csv, sep=";")
+        metric_names = [c for c in df.columns if c != "model" and not c.endswith("_std")]
+        results_rows = []
+        for _, row in df.iterrows():
+            r: Dict[str, Any] = {"model": row["model"]}
+            for m in metric_names:
+                r[m] = row[m]
+                std_col = f"{m}_std"
+                if std_col in df.columns:
+                    r[std_col] = row[std_col]
+            results_rows.append(r)
+
+        # --- Results table (LaTeX) ---
+        if config.reporting.latex:
             try:
-                import pandas as pd
                 from .reporting.latex_report import generate_results_section
-                df = pd.read_csv(metrics_csv, sep=";")
-                metric_names = [c for c in df.columns if c != "model" and not c.endswith("_std")]
-                results_rows = []
-                for _, row in df.iterrows():
-                    r = {"model": row["model"]}
-                    for m in metric_names:
-                        r[m] = row[m]
-                    results_rows.append(r)
                 generate_results_section(metric_names, results_rows, results_dir / "results.tex")
             except Exception as e:
                 logger.warning("Results table generation failed: %s", e)
 
-    # --- Markdown report ---
-    if config.reporting.markdown:
-        try:
-            from .reporting.markdown_report import generate_markdown_report
-            metrics_csv = results_dir / "metrics_summary.csv"
-            if metrics_csv.exists():
-                import pandas as pd
-                df = pd.read_csv(metrics_csv, sep=";")
-                metric_names = [c for c in df.columns if c != "model" and not c.endswith("_std")]
-                results_rows = []
-                for _, row in df.iterrows():
-                    r = {"model": row["model"]}
-                    for m in metric_names:
-                        r[m] = row[m]
-                    results_rows.append(r)
+        # --- Markdown report ---
+        if config.reporting.markdown:
+            try:
+                from .reporting.markdown_report import generate_markdown_report
                 generate_markdown_report(
                     config.experiment.name,
                     config.experiment.seed,
@@ -825,52 +819,11 @@ def stage_report(config: ClaryonConfig, state: PipelineState) -> None:
                     results_rows,
                     results_dir / "report.md",
                 )
-        except Exception as e:
-            logger.warning("Markdown report generation failed: %s", e)
+            except Exception as e:
+                logger.warning("Markdown report generation failed: %s", e)
 
     if not state.metrics_summary:
         logger.info("No metrics available — skipping report generation")
-        return
-
-    metric_names = config.evaluation.metrics
-    model_names = list(state.metrics_summary.keys())
-    results_rows = []
-    for mname in model_names:
-        row: Dict[str, Any] = {"model": mname}
-        for metric in metric_names:
-            row[metric] = state.metrics_summary[mname].get(metric, float("nan"))
-        results_rows.append(row)
-
-    if config.reporting.markdown:
-        from .reporting.markdown_report import generate_markdown_report
-        md_path = state.results_dir / "report.md"
-        generate_markdown_report(
-            experiment_name=config.experiment.name,
-            seed=config.experiment.seed,
-            cv_strategy=config.cv.strategy,
-            n_folds=config.cv.n_folds,
-            models=model_names,
-            metrics=metric_names,
-            results=results_rows,
-            output_path=md_path,
-        )
-
-    if config.reporting.latex:
-        from .reporting.latex_report import generate_methods_section, generate_results_section
-        generate_methods_section(
-            experiment_name=config.experiment.name,
-            seed=config.experiment.seed,
-            cv_strategy=config.cv.strategy,
-            n_folds=config.cv.n_folds,
-            models=model_names,
-            metrics=metric_names,
-            output_path=state.results_dir / "methods.tex",
-        )
-        generate_results_section(
-            metrics=metric_names,
-            results=results_rows,
-            output_path=state.results_dir / "results.tex",
-        )
 
 
 def _write_provenance(config: ClaryonConfig, state: PipelineState, runtime_seconds: float) -> None:
