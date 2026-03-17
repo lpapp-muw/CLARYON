@@ -104,6 +104,15 @@ preprocessing:
       parameters were computed on the training fold only and
       applied to the test fold to prevent data leakage.
 
+  quantum_no_zscore:
+    text: >
+      For quantum models, z-score normalization was intentionally omitted
+      prior to amplitude encoding. Amplitude encoding inherently
+      L2-normalizes the feature vector, and prior z-score normalization
+      distorts the geometric structure of the data in Hilbert space,
+      degrading quantum kernel performance. Feature selection (mRMR)
+      was applied to quantum models identically to classical models.
+
 # ─────────────────────────────────────────────
 # Cross-validation strategies
 # ─────────────────────────────────────────────

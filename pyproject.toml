@@ -8,7 +8,7 @@ version = "0.11.0"
 description = "CLassical-quantum AI for Reproducible Explainable OpeN-source medicine"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "BSD-3-Clause"}
+license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "L. Papp", email = "laszlo.papp@meduniwien.ac.at"},
 ]
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]

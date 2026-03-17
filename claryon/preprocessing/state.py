@@ -51,6 +51,7 @@ class PreprocessingState:
     # Metadata
     n_features_original: int = 0
     n_features_selected: int = 0
+    preprocessing_applied: str = "zscore_mrmr"  # "zscore_mrmr" or "mrmr_only"
 
     def save(self, path: Path) -> None:
         """Serialize preprocessing state to JSON.
@@ -72,6 +73,7 @@ class PreprocessingState:
             "image_norm_max": self.image_norm_max,
             "n_features_original": self.n_features_original,
             "n_features_selected": self.n_features_selected,
+            "preprocessing_applied": self.preprocessing_applied,
         }
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
@@ -102,10 +104,14 @@ class PreprocessingState:
             image_norm_max=data.get("image_norm_max"),
             n_features_original=data.get("n_features_original", 0),
             n_features_selected=data.get("n_features_selected", 0),
+            preprocessing_applied=data.get("preprocessing_applied", "zscore_mrmr"),
         )
 
     def apply_tabular(self, X: np.ndarray) -> np.ndarray:
-        """Z-score normalize and select features using stored train coefficients.
+        """Normalize and select features using stored train coefficients.
+
+        Applies z-score only if preprocessing_applied == "zscore_mrmr".
+        Quantum models (mrmr_only) get feature selection without z-score.
 
         Args:
             X: Feature matrix, shape (n_samples, n_features_original).
@@ -113,6 +119,8 @@ class PreprocessingState:
         Returns:
             Transformed matrix, shape (n_samples, n_features_selected).
         """
+        if self.preprocessing_applied == "mrmr_only":
+            return X[:, self.selected_features]
         X_z = (X - self.z_mean) / np.maximum(self.z_std, 1e-12)
         return X_z[:, self.selected_features]
 

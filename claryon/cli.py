@@ -43,7 +43,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     from .config_schema import load_config
     config = load_config(args.config)
     from .pipeline import run_pipeline
-    run_pipeline(config)
+    run_pipeline(config, verbosity=args.verbose)
 
 
 def cmd_preprocess(args: argparse.Namespace) -> None:

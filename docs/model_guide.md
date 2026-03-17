@@ -319,6 +319,19 @@ Estimated per-fold runtimes on a modern CPU workstation (no GPU, exact quantum s
 
 ---
 
+## Important: Preprocessing and Quantum Models
+
+**Do NOT apply z-score normalization before quantum models.**
+CLARYON handles this automatically --- quantum models receive
+mRMR-selected features without z-score, while classical models
+receive z-scored + mRMR-selected features.
+
+If you override preprocessing manually, be aware that z-score
+normalization before amplitude encoding destroys quantum kernel
+geometry and can reduce performance by 30-40%.
+
+---
+
 ## 6. Common Pitfalls
 
 ### Do not publish with quick or small presets

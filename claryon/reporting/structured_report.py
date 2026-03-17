@@ -483,6 +483,12 @@ def generate_structured_methods(
             f"{bg.positive} were mapped to positive (1) and "
             f"{bg.negative if bg.negative else 'all remaining classes'} to negative (0)."
         )
+    # HF-031: quantum models skip z-score
+    has_quantum = any(m.type == "tabular_quantum" for m in config.models)
+    if has_quantum:
+        quantum_zscore_text = _get_text(registry, "preprocessing", "quantum_no_zscore")
+        if quantum_zscore_text:
+            preproc_parts.append(quantum_zscore_text)
     encoding_text = _section_encoding(registry, config, n_features)
     if encoding_text:
         preproc_parts.append(encoding_text)

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -134,7 +135,7 @@ def _load_nifti_volumes(
     return Dataset(X=X, y=y, keys=ids, task_type=task_type, label_mapper=mapper)
 
 
-def stage_load_data(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_load_data(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 1: Load data from configured sources.
 
     Args:
@@ -201,7 +202,7 @@ def stage_load_data(config: ClaryonConfig, state: PipelineState) -> None:
         logger.warning("No data source configured")
 
 
-def stage_binary_grouping(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_binary_grouping(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 2: Apply binary grouping if configured.
 
     Args:
@@ -229,7 +230,7 @@ def stage_binary_grouping(config: ClaryonConfig, state: PipelineState) -> None:
         logger.info("Binary grouping not configured — skipping")
 
 
-def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_preprocess(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 3: Preprocess data (imputation + radiomics, NOT z-score/mRMR).
 
     Z-score and mRMR happen per-fold inside stage_train to prevent data leakage.
@@ -282,7 +283,7 @@ def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
                 logger.warning("No image/mask pairs found for radiomics extraction")
 
 
-def stage_split(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_split(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 4: Generate cross-validation splits.
 
     Args:
@@ -314,8 +315,13 @@ def _preprocess_fold(
     y_train: np.ndarray,
     feature_names: List[str],
     config: ClaryonConfig,
+    model_type: str = "tabular",
 ) -> tuple[np.ndarray, np.ndarray, Any]:
-    """Apply per-fold preprocessing: z-score + mRMR on training data.
+    """Apply per-fold preprocessing: mRMR + optional z-score on training data.
+
+    Z-score is applied only to classical (tabular) models. Quantum models
+    skip z-score because amplitude encoding handles normalization, and
+    z-score distorts quantum kernel geometry (HF-031).
 
     Args:
         X_train: Training features.
@@ -323,6 +329,7 @@ def _preprocess_fold(
         y_train: Training labels.
         feature_names: Feature names.
         config: Experiment configuration.
+        model_type: Model type ("tabular", "tabular_quantum", "imaging").
 
     Returns:
         (X_train_preprocessed, X_test_preprocessed, PreprocessingState)
@@ -333,27 +340,47 @@ def _preprocess_fold(
 
     prep_cfg = config.preprocessing
 
-    # Step 1: Z-score normalization (fit on train only)
+    # Step 1: Always compute z-score coefficients (needed for classical inference)
     if prep_cfg.zscore:
         z_mean, z_std = fit_zscore(X_train)
-        X_train = apply_zscore(X_train, z_mean, z_std)
-        X_test = apply_zscore(X_test, z_mean, z_std)
     else:
         z_mean = np.zeros(X_train.shape[1])
         z_std = np.ones(X_train.shape[1])
 
-    # Step 2: mRMR feature selection (fit on train only)
+    # Step 2: mRMR feature selection (applies to ALL tabular models)
     if prep_cfg.feature_selection:
         selected_idx, selected_names = mrmr_select(
             X_train, y_train, feature_names,
             spearman_threshold=prep_cfg.spearman_threshold,
             max_features=prep_cfg.max_features,
         )
-        X_train = X_train[:, selected_idx]
-        X_test = X_test[:, selected_idx]
     else:
         selected_idx = list(range(X_train.shape[1]))
         selected_names = feature_names[:X_train.shape[1]]
+
+    # Select features first (before z-score, so quantum gets raw selected)
+    X_train_sel = X_train[:, selected_idx]
+    X_test_sel = X_test[:, selected_idx]
+
+    # Step 3: Apply z-score only to classical models (HF-031)
+    if model_type == "tabular_quantum":
+        # Quantum: mRMR only, NO z-score
+        # Amplitude encoding handles normalization
+        X_train_out = X_train_sel
+        X_test_out = X_test_sel
+        preprocessing_applied = "mrmr_only"
+        logger.info("  Quantum model: skipping z-score (amplitude encoding normalizes)")
+    else:
+        # Classical: z-score + mRMR
+        if prep_cfg.zscore:
+            z_mean_sel = z_mean[selected_idx]
+            z_std_sel = z_std[selected_idx]
+            X_train_out = apply_zscore(X_train_sel, z_mean_sel, z_std_sel)
+            X_test_out = apply_zscore(X_test_sel, z_mean_sel, z_std_sel)
+        else:
+            X_train_out = X_train_sel
+            X_test_out = X_test_sel
+        preprocessing_applied = "zscore_mrmr" if prep_cfg.zscore else "mrmr_only"
 
     preproc_state = PreprocessingState(
         z_mean=z_mean,
@@ -364,12 +391,13 @@ def _preprocess_fold(
         image_norm_mode=prep_cfg.image_normalization,
         n_features_original=len(feature_names),
         n_features_selected=len(selected_idx),
+        preprocessing_applied=preprocessing_applied,
     )
 
-    return X_train, X_test, preproc_state
+    return X_train_out, X_test_out, preproc_state
 
 
-def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 5: Train all configured models across folds/seeds.
 
     Preprocessing (z-score, mRMR) happens INSIDE each fold to prevent leakage.
@@ -380,6 +408,7 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
     """
     logger.info("Stage 5: Train (with per-fold preprocessing)")
 
+    progress = kwargs.get("progress")
     _import_model_modules()
 
     ds = state.dataset
@@ -400,6 +429,22 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
         model_name = model_entry.name
         logger.info("Training model: %s", model_name)
 
+        # Model/data type validation
+        if model_entry.type == "imaging" and is_tabular:
+            logger.error(
+                "SKIPPING %s: model type 'imaging' requires imaging data "
+                "(config.data.imaging). Cannot run CNN on tabular features.",
+                model_name,
+            )
+            continue
+        if model_entry.type in ("tabular", "tabular_quantum") and not is_tabular:
+            logger.error(
+                "SKIPPING %s: model type '%s' requires tabular data "
+                "(config.data.tabular). Cannot run on imaging data alone.",
+                model_name, model_entry.type,
+            )
+            continue
+
         try:
             model_cls = get("model", model_name)
         except KeyError:
@@ -407,6 +452,9 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
             continue
 
         model_results: List[Dict[str, Any]] = []
+        _t_model_start = time.monotonic()
+        total_folds = sum(len(s) for s in state.splits.values())
+        fold_counter = 0
 
         for seed, splits in state.splits.items():
             for split in splits:
@@ -429,6 +477,7 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                     if is_tabular and model_entry.type != "imaging":
                         X_train, X_test, preproc_state = _preprocess_fold(
                             X_train, X_test, y_train, feature_names, config,
+                            model_type=model_entry.type,
                         )
                         logger.info("  Preprocessed: %d → %d features",
                                     preproc_state.n_features_original,
@@ -567,6 +616,11 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                         "n_train": len(y_train), "n_test": len(y_test),
                         "status": "ok",
                     })
+                    fold_counter += 1
+                    if progress is not None:
+                        elapsed = time.monotonic() - _t_model_start
+                        progress.model_progress(model_name, fold_counter, total_folds, elapsed)
+
                 except MemoryError:
                     logger.error("  OUT OF MEMORY during %s training. Skipping.", model_name)
                     model_results.append({
@@ -582,7 +636,7 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
         state.results[model_name] = model_results
 
 
-def stage_evaluate(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_evaluate(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 6: Evaluate models and compute metrics.
 
     Args:
@@ -659,7 +713,7 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState) -> None:
         logger.info("Wrote metrics summary to %s", summary_path)
 
 
-def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_explain(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 7: Run explainability methods.
 
     Args:
@@ -748,7 +802,7 @@ def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
                 logger.error("  LIME failed for %s: %s", model_name, e)
 
 
-def stage_report(config: ClaryonConfig, state: PipelineState) -> None:
+def stage_report(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 8: Generate reports.
 
     Args:
@@ -888,16 +942,17 @@ def _write_provenance(config: ClaryonConfig, state: PipelineState, runtime_secon
         f.write(config_yaml)
 
 
-def run_pipeline(config: ClaryonConfig) -> PipelineState:
+def run_pipeline(config: ClaryonConfig, verbosity: int = 0) -> PipelineState:
     """Execute all pipeline stages in order.
 
     Args:
         config: Validated experiment configuration.
+        verbosity: CLI verbosity level (0=summary, 1=stages, 2=details).
 
     Returns:
         PipelineState with results from all stages.
     """
-    import time
+    from .progress import ProgressDisplay
 
     logger.info("Pipeline start: experiment=%s", config.experiment.name)
     t_start = time.monotonic()
@@ -906,24 +961,55 @@ def run_pipeline(config: ClaryonConfig) -> PipelineState:
     enforce_determinism(config.experiment.seed)
 
     state = PipelineState()
+    progress = ProgressDisplay(verbosity=verbosity, n_stages=8)
 
-    stages = [
-        ("load_data", stage_load_data),
-        ("binary_grouping", stage_binary_grouping),
-        ("preprocess", stage_preprocess),
-        ("split", stage_split),
-        ("train", stage_train),
-        ("evaluate", stage_evaluate),
-        ("explain", stage_explain),
-        ("report", stage_report),
+    stage_names = [
+        "Loading data",
+        "Binary grouping",
+        "Preprocessing",
+        "Splitting",
+        "Training",
+        "Evaluating",
+        "Explaining",
+        "Reporting",
+    ]
+    stage_fns = [
+        stage_load_data,
+        stage_binary_grouping,
+        stage_preprocess,
+        stage_split,
+        stage_train,
+        stage_evaluate,
+        stage_explain,
+        stage_report,
     ]
 
-    for name, fn in stages:
-        logger.info("=== Stage: %s ===", name)
-        fn(config, state)
+    for stage_label, fn in zip(stage_names, stage_fns):
+        progress.stage_start(stage_label)
+        fn(config, state, progress=progress)
+        # Build a short summary for the stage
+        detail = ""
+        if fn is stage_load_data and state.dataset is not None:
+            detail = f"{state.dataset.n_samples} samples × {state.dataset.n_features} features"
+        elif fn is stage_split and state.splits:
+            total = sum(len(v) for v in state.splits.values())
+            detail = f"{total} folds"
+        elif fn is stage_train:
+            ok = sum(
+                1 for res in state.results.values()
+                for r in res if r.get("status") == "ok"
+            )
+            detail = f"{ok} fits completed"
+        elif fn is stage_evaluate and state.metrics_summary:
+            detail = f"{len(state.metrics_summary)} models scored"
+        progress.stage_done(detail)
 
     runtime = time.monotonic() - t_start
     _write_provenance(config, state, runtime)
+
+    # Print summary table
+    metric_names = config.evaluation.metrics
+    progress.summary_table(state.metrics_summary, metric_names, str(state.results_dir))
 
     logger.info("Pipeline complete: experiment=%s (%.1fs)", config.experiment.name, runtime)
     return state
