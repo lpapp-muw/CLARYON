@@ -32,8 +32,14 @@ def extract_radiomics_features(
     Returns:
         Dict mapping feature names to values.
     """
-    import radiomics
-    from radiomics import featureextractor
+    try:
+        import radiomics
+        from radiomics import featureextractor
+    except ImportError as exc:
+        raise ImportError(
+            "pyradiomics is required for radiomics extraction. "
+            "Install with: pip install pyradiomics"
+        ) from exc
 
     image_path = str(Path(image_path))
     mask_path = str(Path(mask_path))

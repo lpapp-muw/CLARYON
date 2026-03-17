@@ -1,0 +1,68 @@
+# CLARYON model presets — hyperparameter profiles by complexity level.
+#
+# Resolution priority (highest wins):
+#   1. Explicit `params` in user YAML config
+#   2. Model-level `preset` field
+#   3. Global `complexity` setting
+#   4. Category default for `medium`
+
+_defaults:
+  # Tabular category has no shared defaults since models differ widely
+  # (tree-based vs MLP vs TabPFN). Presets are per-model.
+  tabular: {}
+
+  tabular_quantum:
+    quick:      { epochs: 5,   lr: 0.05,  batch_size: 32 }
+    small:      { epochs: 30,  lr: 0.02,  batch_size: 16 }
+    medium:     { epochs: 100, lr: 0.01,  batch_size: 16 }
+    large:      { epochs: 300, lr: 0.005, batch_size: 8 }
+    exhaustive: { epochs: 500, lr: 0.002, batch_size: 8 }
+
+  imaging:
+    quick:      { epochs: 5,   batch_size: 8 }
+    small:      { epochs: 20,  batch_size: 8 }
+    medium:     { epochs: 50,  batch_size: 4 }
+    large:      { epochs: 100, batch_size: 4 }
+    exhaustive: { epochs: 200, batch_size: 2 }
+
+# Per-model overrides (merged on top of category defaults)
+xgboost:
+  quick:      { n_estimators: 50,   max_depth: 4,  learning_rate: 0.1 }
+  small:      { n_estimators: 200,  max_depth: 6,  learning_rate: 0.05 }
+  medium:     { n_estimators: 500,  max_depth: 8,  learning_rate: 0.02 }
+  large:      { n_estimators: 1000, max_depth: 10, learning_rate: 0.01 }
+  exhaustive: { n_estimators: 2000, max_depth: 12, learning_rate: 0.005 }
+
+lightgbm:
+  quick:      { n_estimators: 50,   max_depth: 4,  learning_rate: 0.1 }
+  small:      { n_estimators: 200,  max_depth: 6,  learning_rate: 0.05 }
+  medium:     { n_estimators: 500,  max_depth: 8,  learning_rate: 0.02 }
+  large:      { n_estimators: 1000, max_depth: 10, learning_rate: 0.01 }
+  exhaustive: { n_estimators: 2000, max_depth: 12, learning_rate: 0.005 }
+
+catboost:
+  quick:      { iterations: 50,   depth: 4,  learning_rate: 0.1,   verbose: 0 }
+  small:      { iterations: 200,  depth: 6,  learning_rate: 0.05,  verbose: 0 }
+  medium:     { iterations: 500,  depth: 8,  learning_rate: 0.02,  verbose: 0 }
+  large:      { iterations: 1000, depth: 10, learning_rate: 0.01,  verbose: 0 }
+  exhaustive: { iterations: 2000, depth: 12, learning_rate: 0.005, verbose: 0 }
+
+mlp:
+  quick:      { max_iter: 50 }
+  small:      { max_iter: 200 }
+  medium:     { max_iter: 1000 }
+  large:      { max_iter: 3000 }
+  exhaustive: { max_iter: 5000 }
+
+kernel_svm:
+  quick:      { shots: null }
+  small:      { shots: null }
+  medium:     { shots: null }
+  large:      { shots: 8192 }
+  exhaustive: { shots: 8192 }
+
+qcnn_muw:
+  medium: { epochs: 100, lr: 0.01, init_scale: 0.1 }
+
+qnn:
+  medium: { num_layers: 4, epochs: 100, lr: 0.005, margin: 0.15 }

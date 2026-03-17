@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from .config_schema import ClaryonConfig
-from .io.base import Dataset, TaskType
+from .io.base import BinaryLabelMapper, Dataset, TaskType
 from .io.predictions import write_predictions
 from .preprocessing.splits import SplitIndices, auto_split
 from .registry import get
@@ -58,6 +58,11 @@ def _import_model_modules() -> None:
         "claryon.models.quantum.qcnn_alt",
         "claryon.models.quantum.vqc",
         "claryon.models.quantum.hybrid",
+        "claryon.models.quantum.sq_kernel_svm",
+        "claryon.models.quantum.qdc_hadamard",
+        "claryon.models.quantum.qdc_swap",
+        "claryon.models.quantum.quantum_gp",
+        "claryon.models.quantum.qnn",
     ]
     for mod in modules:
         importlib.import_module(mod)
@@ -68,12 +73,17 @@ def _import_model_modules() -> None:
             logger.debug("Optional model module not available: %s", mod)
 
 
-def _load_nifti_volumes(root: str, mask_pattern: Optional[str]) -> Optional[Dataset]:
+def _load_nifti_volumes(
+    root: str,
+    mask_pattern: Optional[str],
+    image_pattern: str = "*.nii*",
+) -> Optional[Dataset]:
     """Load NIfTI volumes as 5D array (N, C, D, H, W) for CNN models.
 
     Args:
         root: Root directory with NIfTI files.
         mask_pattern: Glob pattern for masks.
+        image_pattern: Glob pattern for image volumes.
 
     Returns:
         Dataset with 5D volume array, or None if no files found.
@@ -85,7 +95,7 @@ def _load_nifti_volumes(root: str, mask_pattern: Optional[str]) -> Optional[Data
     train_dir = root_path / "Train"
     search_dir = train_dir if train_dir.exists() else root_path
 
-    pairs = _collect_pairs(search_dir, "*PET*.nii*", mask_pattern)
+    pairs = _collect_pairs(search_dir, image_pattern, mask_pattern)
     if not pairs:
         return None
 
@@ -112,7 +122,7 @@ def _load_nifti_volumes(root: str, mask_pattern: Optional[str]) -> Optional[Data
 
     # Determine task type and encode labels
     unique = sorted(set(y_labels))
-    from .io.base import BinaryLabelMapper, MultiClassLabelMapper, TaskType
+    from .io.base import MultiClassLabelMapper
     if len(unique) == 2:
         mapper = BinaryLabelMapper.fit(y_labels)
         task_type = TaskType.BINARY
@@ -152,13 +162,15 @@ def stage_load_data(config: ClaryonConfig, state: PipelineState) -> None:
         # Check if any model is imaging type (needs raw 3D volumes)
         has_imaging_model = any(m.type == "imaging" for m in config.models)
 
+        img_pat = ic.image_pattern if ic.image_pattern else "*.nii*"
+
         if has_imaging_model:
             # Load as raw 3D volumes (N, C, D, H, W) for CNN models
-            ds_imaging = _load_nifti_volumes(ic.path, mask_pat)
+            ds_imaging = _load_nifti_volumes(ic.path, mask_pat, image_pattern=img_pat)
         else:
             # Load flattened for tabular-style models
             from .io.nifti import load_nifti_dataset
-            nifti_result = load_nifti_dataset(root=ic.path, mask_pattern=mask_pat)
+            nifti_result = load_nifti_dataset(root=ic.path, pet_pattern=img_pat, mask_pattern=mask_pat)
             ds_imaging = nifti_result.get("all") or nifti_result.get("train")
 
         if ds_imaging is not None:
@@ -189,14 +201,44 @@ def stage_load_data(config: ClaryonConfig, state: PipelineState) -> None:
         logger.warning("No data source configured")
 
 
-def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 2: Preprocess data.
+def stage_binary_grouping(config: ClaryonConfig, state: PipelineState) -> None:
+    """Stage 2: Apply binary grouping if configured.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state.
     """
-    logger.info("Stage 2: Preprocess")
+    logger.info("Stage 2: Binary grouping")
+    ds = state.dataset
+    if ds is None or ds.y is None:
+        return
+
+    if config.binary_grouping is not None and config.binary_grouping.enabled:
+        from .preprocessing.binary_grouping import apply_binary_grouping
+
+        ds.y = apply_binary_grouping(ds.y, config.binary_grouping)
+        ds.task_type = TaskType.BINARY
+        ds.label_mapper = BinaryLabelMapper(
+            classes=[0, 1],
+            to_int={0: 0, 1: 1},
+            to_label={0: 0, 1: 1},
+        )
+        logger.info("Binary grouping applied: %d pos / %d neg",
+                     int(ds.y.sum()), int((ds.y == 0).sum()))
+    else:
+        logger.info("Binary grouping not configured — skipping")
+
+
+def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
+    """Stage 3: Preprocess data (imputation + radiomics, NOT z-score/mRMR).
+
+    Z-score and mRMR happen per-fold inside stage_train to prevent data leakage.
+
+    Args:
+        config: Experiment configuration.
+        state: Pipeline state.
+    """
+    logger.info("Stage 3: Preprocess (imputation/radiomics)")
     ds = state.dataset
     if ds is None:
         logger.warning("No dataset — skipping preprocessing")
@@ -223,7 +265,7 @@ def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
             ic = config.data.imaging
             pairs = _collect_pairs(
                 Path(ic.path),
-                pet_pattern="*PET*.nii*",
+                pet_pattern=ic.image_pattern or "*.nii*",
                 mask_pattern=ic.mask_pattern,
             )
             img_mask_pairs = [(str(p), str(m)) for p, m in pairs if m is not None]
@@ -241,13 +283,13 @@ def stage_preprocess(config: ClaryonConfig, state: PipelineState) -> None:
 
 
 def stage_split(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 3: Generate cross-validation splits.
+    """Stage 4: Generate cross-validation splits.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state to populate with splits.
     """
-    logger.info("Stage 3: Split")
+    logger.info("Stage 4: Split")
     ds = state.dataset
     if ds is None or ds.y is None:
         logger.warning("No dataset or labels — skipping split")
@@ -266,14 +308,77 @@ def stage_split(config: ClaryonConfig, state: PipelineState) -> None:
         logger.info("Generated %d splits for seed=%d", len(splits), seed)
 
 
+def _preprocess_fold(
+    X_train: np.ndarray,
+    X_test: np.ndarray,
+    y_train: np.ndarray,
+    feature_names: List[str],
+    config: ClaryonConfig,
+) -> tuple[np.ndarray, np.ndarray, Any]:
+    """Apply per-fold preprocessing: z-score + mRMR on training data.
+
+    Args:
+        X_train: Training features.
+        X_test: Test features.
+        y_train: Training labels.
+        feature_names: Feature names.
+        config: Experiment configuration.
+
+    Returns:
+        (X_train_preprocessed, X_test_preprocessed, PreprocessingState)
+    """
+    from .preprocessing.feature_selection import mrmr_select
+    from .preprocessing.state import PreprocessingState
+    from .preprocessing.tabular_prep import apply_zscore, fit_zscore
+
+    prep_cfg = config.preprocessing
+
+    # Step 1: Z-score normalization (fit on train only)
+    if prep_cfg.zscore:
+        z_mean, z_std = fit_zscore(X_train)
+        X_train = apply_zscore(X_train, z_mean, z_std)
+        X_test = apply_zscore(X_test, z_mean, z_std)
+    else:
+        z_mean = np.zeros(X_train.shape[1])
+        z_std = np.ones(X_train.shape[1])
+
+    # Step 2: mRMR feature selection (fit on train only)
+    if prep_cfg.feature_selection:
+        selected_idx, selected_names = mrmr_select(
+            X_train, y_train, feature_names,
+            spearman_threshold=prep_cfg.spearman_threshold,
+            max_features=prep_cfg.max_features,
+        )
+        X_train = X_train[:, selected_idx]
+        X_test = X_test[:, selected_idx]
+    else:
+        selected_idx = list(range(X_train.shape[1]))
+        selected_names = feature_names[:X_train.shape[1]]
+
+    preproc_state = PreprocessingState(
+        z_mean=z_mean,
+        z_std=z_std,
+        selected_features=selected_idx,
+        selected_feature_names=selected_names,
+        spearman_threshold=prep_cfg.spearman_threshold,
+        image_norm_mode=prep_cfg.image_normalization,
+        n_features_original=len(feature_names),
+        n_features_selected=len(selected_idx),
+    )
+
+    return X_train, X_test, preproc_state
+
+
 def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 4: Train all configured models across folds/seeds.
+    """Stage 5: Train all configured models across folds/seeds.
+
+    Preprocessing (z-score, mRMR) happens INSIDE each fold to prevent leakage.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state with dataset and splits.
     """
-    logger.info("Stage 4: Train")
+    logger.info("Stage 5: Train (with per-fold preprocessing)")
 
     _import_model_modules()
 
@@ -284,6 +389,9 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
 
     state.results_dir = Path(config.experiment.results_dir)
     state.results_dir.mkdir(parents=True, exist_ok=True)
+
+    feature_names = ds.feature_names or [f"f{i}" for i in range(ds.n_features)]
+    is_tabular = ds.X.ndim == 2
 
     for model_entry in config.models:
         model_name = model_entry.name
@@ -311,30 +419,68 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                 logger.info("  seed=%d fold=%d train=%d test=%d", seed, fold, len(y_train), len(y_test))
 
                 try:
+                    pred_dir = state.results_dir / model_name / f"seed_{seed}" / f"fold_{fold}"
+
+                    # Per-fold preprocessing for tabular data
+                    preproc_state = None
+                    if is_tabular and model_entry.type != "imaging":
+                        X_train, X_test, preproc_state = _preprocess_fold(
+                            X_train, X_test, y_train, feature_names, config,
+                        )
+                        logger.info("  Preprocessed: %d → %d features",
+                                    preproc_state.n_features_original,
+                                    preproc_state.n_features_selected)
+                    elif model_entry.type == "imaging":
+                        # Image normalization
+                        from .preprocessing.image_prep import normalize_images
+                        mode = config.preprocessing.image_normalization
+                        if mode == "cohort_global":
+                            gmin = float(X_train.min())
+                            gmax = float(X_train.max())
+                            X_train, _, _ = normalize_images(X_train, mode="cohort_global",
+                                                             global_min=gmin, global_max=gmax)
+                            X_test, _, _ = normalize_images(X_test, mode="cohort_global",
+                                                            global_min=gmin, global_max=gmax)
+                        else:
+                            X_train, _, _ = normalize_images(X_train, mode="per_image")
+                            X_test, _, _ = normalize_images(X_test, mode="per_image")
+
                     # Amplitude-encode for quantum models
                     X_tr_use, X_te_use = X_train, X_test
-                    params = dict(model_entry.params)
+
+                    # Resolve preset parameters
+                    from .models.preset_resolver import resolve_model_params
+                    params = resolve_model_params(
+                        model_name=model_entry.name,
+                        model_type=model_entry.type,
+                        explicit_params=dict(model_entry.params),
+                        model_preset=model_entry.preset,
+                        global_complexity=config.experiment.complexity,
+                    )
                     if model_entry.type == "tabular_quantum":
                         from .encoding.amplitude import amplitude_encode_matrix
                         X_tr_use, enc_info = amplitude_encode_matrix(X_train)
                         X_te_use, _ = amplitude_encode_matrix(X_test, pad_len=enc_info.encoded_dim)
                         # Override n_qubits from encoding (authoritative) — HF-010
                         params["n_qubits"] = enc_info.n_qubits
-                        logger.info("  Amplitude encoded: %d features -> %d (n_qubits=%d, overridden from encoding)",
+                        logger.info("  Amplitude encoded: %d features -> %d (n_qubits=%d)",
                                     X_train.shape[1], enc_info.encoded_dim, enc_info.n_qubits)
 
-                    model = model_cls(**params)
+                    try:
+                        model = model_cls(**params)
+                    except TypeError:
+                        # Fallback: use only explicit user params if preset params conflict
+                        model = model_cls(**dict(model_entry.params))
                     model.fit(X_tr_use, y_train, ds.task_type)
 
                     if ds.task_type == TaskType.REGRESSION:
-                        predicted = model.predict(X_test)
+                        predicted = model.predict(X_te_use)
                         probs = None
                     else:
-                        probs = model.predict_proba(X_test)
+                        probs = model.predict_proba(X_te_use)
                         predicted = np.argmax(probs, axis=1)
 
                     # Write predictions
-                    pred_dir = state.results_dir / model_name / f"seed_{seed}" / f"fold_{fold}"
                     write_predictions(
                         pred_dir / "Predictions.csv",
                         keys=keys_test,
@@ -346,6 +492,10 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                         seed=seed,
                     )
 
+                    # Save PreprocessingState per fold
+                    if preproc_state is not None:
+                        preproc_state.save(pred_dir / "preprocessing_state.json")
+
                     # Persist last fitted model + data for explainability
                     state.fitted_models[model_name] = {
                         "model": model,
@@ -353,6 +503,8 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                         "X_test": X_te_use,
                         "y_test": y_test,
                         "model_entry": model_entry,
+                        "feature_names": (preproc_state.selected_feature_names
+                                          if preproc_state else feature_names),
                     }
 
                     model_results.append({
@@ -370,13 +522,13 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
 
 
 def stage_evaluate(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 5: Evaluate models and compute metrics.
+    """Stage 6: Evaluate models and compute metrics.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state.
     """
-    logger.info("Stage 5: Evaluate")
+    logger.info("Stage 6: Evaluate")
 
     from .io.predictions import read_predictions
     from .registry import get as registry_get
@@ -444,13 +596,13 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState) -> None:
 
 
 def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 6: Run explainability methods.
+    """Stage 7: Run explainability methods.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state.
     """
-    logger.info("Stage 6: Explain")
+    logger.info("Stage 7: Explain")
 
     run_shap = config.explainability.shap
     run_lime = config.explainability.lime
@@ -468,8 +620,11 @@ def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
         X_train = model_info["X_train"]
         X_test = model_info["X_test"]
 
-        ds = state.dataset
-        feature_names = ds.feature_names if ds is not None else None
+        # Use per-fold feature names if available (after mRMR)
+        feature_names = model_info.get("feature_names")
+        if feature_names is None:
+            ds = state.dataset
+            feature_names = ds.feature_names if ds is not None else None
 
         explain_dir = state.results_dir / model_name / "explanations"
         explain_dir.mkdir(parents=True, exist_ok=True)
@@ -514,13 +669,87 @@ def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
 
 
 def stage_report(config: ClaryonConfig, state: PipelineState) -> None:
-    """Stage 7: Generate reports.
+    """Stage 8: Generate reports.
 
     Args:
         config: Experiment configuration.
         state: Pipeline state.
     """
-    logger.info("Stage 7: Report")
+    logger.info("Stage 8: Report")
+
+    results_dir = state.results_dir
+
+    # Determine dataset dimensions for method descriptions
+    n_samples = state.dataset.n_samples if state.dataset else 0
+    n_features = state.dataset.n_features if state.dataset else 0
+
+    # --- Structured methods section (prose from text registry) ---
+    if config.reporting.latex:
+        try:
+            from .reporting.structured_report import generate_structured_methods
+            generate_structured_methods(
+                config, results_dir / "methods.tex",
+                n_samples=n_samples, n_features=n_features,
+            )
+        except Exception as e:
+            logger.warning("Structured methods generation failed: %s — falling back to simple", e)
+            from .reporting.latex_report import generate_methods_section
+            generate_methods_section(
+                experiment_name=config.experiment.name,
+                seed=config.experiment.seed,
+                cv_strategy=config.cv.strategy,
+                n_folds=config.cv.n_folds,
+                models=[m.name for m in config.models],
+                metrics=config.evaluation.metrics,
+                output_path=results_dir / "methods.tex",
+            )
+
+    # --- Results table ---
+    if config.reporting.latex:
+        metrics_csv = results_dir / "metrics_summary.csv"
+        if metrics_csv.exists():
+            try:
+                import pandas as pd
+                from .reporting.latex_report import generate_results_section
+                df = pd.read_csv(metrics_csv, sep=";")
+                metric_names = [c for c in df.columns if c != "model" and not c.endswith("_std")]
+                results_rows = []
+                for _, row in df.iterrows():
+                    r = {"model": row["model"]}
+                    for m in metric_names:
+                        r[m] = row[m]
+                    results_rows.append(r)
+                generate_results_section(metric_names, results_rows, results_dir / "results.tex")
+            except Exception as e:
+                logger.warning("Results table generation failed: %s", e)
+
+    # --- Markdown report ---
+    if config.reporting.markdown:
+        try:
+            from .reporting.markdown_report import generate_markdown_report
+            metrics_csv = results_dir / "metrics_summary.csv"
+            if metrics_csv.exists():
+                import pandas as pd
+                df = pd.read_csv(metrics_csv, sep=";")
+                metric_names = [c for c in df.columns if c != "model" and not c.endswith("_std")]
+                results_rows = []
+                for _, row in df.iterrows():
+                    r = {"model": row["model"]}
+                    for m in metric_names:
+                        r[m] = row[m]
+                    results_rows.append(r)
+                generate_markdown_report(
+                    config.experiment.name,
+                    config.experiment.seed,
+                    config.cv.strategy,
+                    config.cv.n_folds,
+                    [m.name for m in config.models],
+                    metric_names,
+                    results_rows,
+                    results_dir / "report.md",
+                )
+        except Exception as e:
+            logger.warning("Markdown report generation failed: %s", e)
 
     if not state.metrics_summary:
         logger.info("No metrics available — skipping report generation")
@@ -585,6 +814,7 @@ def run_pipeline(config: ClaryonConfig) -> PipelineState:
 
     stages = [
         ("load_data", stage_load_data),
+        ("binary_grouping", stage_binary_grouping),
         ("preprocess", stage_preprocess),
         ("split", stage_split),
         ("train", stage_train),

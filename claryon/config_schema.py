@@ -22,6 +22,8 @@ class ExperimentConfig(BaseModel):
     name: str = "experiment"
     seed: int = 42
     results_dir: str = "Results"
+    complexity: Literal["quick", "small", "medium", "large", "exhaustive", "auto"] = "medium"
+    max_runtime_minutes: int = Field(default=120, ge=1)
 
 
 class TabularDataConfig(BaseModel):
@@ -37,7 +39,8 @@ class ImagingDataConfig(BaseModel):
     """Imaging data source configuration."""
 
     path: str
-    format: Literal["nifti", "tiff", "dicom"] = "nifti"
+    format: Literal["nifti", "tiff"] = "nifti"
+    image_pattern: str = "*"
     mask_pattern: Optional[str] = "*mask*"
 
 
@@ -75,6 +78,7 @@ class ModelEntry(BaseModel):
 
     name: str
     type: Literal["tabular", "tabular_quantum", "imaging"] = "tabular"
+    preset: Optional[Literal["quick", "small", "medium", "large", "exhaustive"]] = None
     params: Dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
 
@@ -97,6 +101,25 @@ class EvaluationConfig(BaseModel):
     )
     statistical_tests: List[str] = Field(default_factory=list)
     confidence_level: float = Field(default=0.95, gt=0.0, lt=1.0)
+    geometric_difference: bool = False
+
+
+class BinaryGroupingConfig(BaseModel):
+    """User-defined binary reduction of multiclass labels."""
+
+    enabled: bool = False
+    positive: List[Any] = Field(default_factory=list)
+    negative: List[Any] = Field(default_factory=list)
+
+
+class PreprocessingConfig(BaseModel):
+    """Preprocessing configuration."""
+
+    zscore: bool = True
+    feature_selection: bool = True
+    spearman_threshold: float = Field(default=0.8, gt=0.0, le=1.0)
+    max_features: Optional[int] = None
+    image_normalization: Literal["per_image", "cohort_global"] = "per_image"
 
 
 class ReportConfig(BaseModel):
@@ -118,6 +141,8 @@ class ClaryonConfig(BaseModel):
 
     experiment: ExperimentConfig = Field(default_factory=ExperimentConfig)
     data: DataConfig = Field(default_factory=DataConfig)
+    binary_grouping: Optional[BinaryGroupingConfig] = None
+    preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
     cv: CVConfig = Field(default_factory=CVConfig)
     models: List[ModelEntry] = Field(default_factory=list)
     explainability: ExplainConfig = Field(default_factory=ExplainConfig)
