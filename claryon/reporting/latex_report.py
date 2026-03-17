@@ -103,10 +103,31 @@ def generate_results_section(
     metrics: list[str],
     results: list[Dict[str, Any]],
     output_path: Path,
+    include_ensemble: bool = True,
 ) -> Path:
-    """Generate results table .tex file."""
+    """Generate results table .tex file.
+
+    If there are multiple models and include_ensemble is True, an Ensemble
+    row is appended showing the mean across models for each metric.
+    """
+    rows = list(results)
+    if include_ensemble and len(rows) > 1:
+        ensemble_row: Dict[str, Any] = {"model": "Ensemble"}
+        for m in metrics:
+            vals = [r[m] for r in rows if m in r and not _is_nan(r[m])]
+            ensemble_row[m] = sum(vals) / len(vals) if vals else float("nan")
+        rows.append(ensemble_row)
     return render_latex_report(
         RESULTS_TEMPLATE,
-        {"metrics": metrics, "results": results},
+        {"metrics": metrics, "results": rows},
         output_path,
     )
+
+
+def _is_nan(v: Any) -> bool:
+    """Check if a value is NaN."""
+    try:
+        import math
+        return math.isnan(float(v))
+    except (TypeError, ValueError):
+        return False

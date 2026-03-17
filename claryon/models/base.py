@@ -31,6 +31,10 @@ class ModelBuilder(abc.ABC):
     automatically by the pipeline.
     """
 
+    # Optional: model provides its own method description (fallback if YAML empty)
+    method_description: str = ""
+    method_cite_key: str = ""
+
     @property
     @abc.abstractmethod
     def name(self) -> str:

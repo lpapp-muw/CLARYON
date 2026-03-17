@@ -170,7 +170,7 @@ def _build_arrays(
 
 def load_nifti_dataset(
     root: Union[str, Path],
-    pet_pattern: str = "*PET*.nii*",
+    pet_pattern: str = "*.nii*",
     mask_pattern: Optional[str] = "*mask*.nii*",
     task_type: Optional[TaskType] = None,
 ) -> Dict[str, Any]:

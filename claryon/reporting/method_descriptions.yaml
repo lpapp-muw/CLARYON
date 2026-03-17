@@ -1,0 +1,596 @@
+# =============================================================================
+# CLARYON — Method Description Registry
+# =============================================================================
+#
+# Pre-written text blocks for automatic methods section generation.
+# Each block uses Jinja2 {{param}} placeholders filled from the experiment config.
+#
+# Structure:
+#   category:
+#     key:
+#       short: One-line name (for tables/lists)
+#       text: Paragraph(s) for the methods section
+#       cite: Optional BibTeX cite keys
+#
+# The generator selects blocks based on what was actually configured,
+# interpolates parameters, and assembles a coherent methods section.
+# =============================================================================
+
+# ─────────────────────────────────────────────
+# Experiment framing
+# ─────────────────────────────────────────────
+
+experiment:
+  default:
+    text: >
+      The experiment ``{{name}}'' was conducted using the CLARYON framework
+      (CLassical-quantum AI for Reproducible Explainable OpeN-source medicine),
+      an open-source Python pipeline for reproducible comparison of classical
+      and quantum machine learning methods on medical and scientific data.
+      All stochastic operations were seeded with seed={{seed}} to ensure
+      full reproducibility. Results were written to ``{{results_dir}}''.
+
+# ─────────────────────────────────────────────
+# Data modalities
+# ─────────────────────────────────────────────
+
+data:
+  tabular:
+    short: "Tabular CSV"
+    text: >
+      The input data consisted of a tabular dataset loaded from
+      ``{{path}}'', containing {{n_samples}} samples and {{n_features}}
+      features. The target variable was the ``{{label_col}}'' column.
+      {{id_note}}
+
+  nifti:
+    short: "NIfTI medical imaging"
+    text: >
+      Imaging data was provided in NIfTI format (.nii/.nii.gz),
+      loaded from ``{{path}}''. Each volume was paired with a
+      binary segmentation mask (pattern: ``{{mask_pattern}}'')
+      defining the region of interest (ROI). Voxels outside the
+      mask were set to zero prior to feature extraction or model input.
+
+  tiff:
+    short: "TIFF optical imaging"
+    text: >
+      Optical imaging data was provided in TIFF format, loaded
+      from ``{{path}}''. Metadata sidecars (JSON) were used for
+      pixel size and acquisition parameters where available.
+
+  fusion_early:
+    text: >
+      When both tabular and imaging features were available, early
+      fusion was applied: imaging features (radiomics or flattened
+      voxel intensities) were concatenated with tabular features
+      into a single feature matrix prior to model training.
+
+  fusion_late:
+    text: >
+      Late fusion was employed: separate models were trained on
+      tabular and imaging features independently, and their
+      predictions were combined via averaging.
+
+# ─────────────────────────────────────────────
+# Radiomics
+# ─────────────────────────────────────────────
+
+radiomics:
+  pyradiomics:
+    short: "PyRadiomics feature extraction"
+    text: >
+      Radiomic features were extracted from the imaging volumes
+      using PyRadiomics (v3.x). The extraction was configured via
+      ``{{config_path}}'' specifying feature classes, bin width,
+      and resampling parameters. Extracted features were merged
+      with any existing tabular data on a per-subject basis.
+    cite: "vanGriethuysen2017"
+
+# ─────────────────────────────────────────────
+# Preprocessing
+# ─────────────────────────────────────────────
+
+preprocessing:
+  imputation:
+    text: >
+      Missing values were imputed using median imputation for
+      numerical features.
+
+  scaling:
+    text: >
+      All features were standardized to zero mean and unit variance
+      (z-score normalization) prior to model training. Scaling
+      parameters were computed on the training fold only and
+      applied to the test fold to prevent data leakage.
+
+# ─────────────────────────────────────────────
+# Cross-validation strategies
+# ─────────────────────────────────────────────
+
+cv:
+  kfold:
+    short: "Stratified k-fold CV"
+    text: >
+      Model performance was evaluated using {{n_folds}}-fold
+      stratified cross-validation, repeated across {{n_seeds}}
+      random seed(s) (seeds: {{seeds_str}}). Stratification
+      ensured that the class distribution was preserved in each
+      fold. This yielded a total of {{total_fits}} train/test
+      splits per model.
+
+  holdout:
+    short: "Stratified holdout"
+    text: >
+      A single stratified holdout split was used with
+      {{test_pct}}% of samples reserved for testing
+      (test_size={{test_size}}), repeated across {{n_seeds}}
+      seed(s). Stratification preserved the class distribution
+      in both training and test sets.
+
+  nested:
+    short: "Nested CV"
+    text: >
+      Nested cross-validation was employed with {{outer_folds}}
+      outer folds and {{inner_folds}} inner folds. The outer loop
+      evaluated generalization performance while the inner loop
+      was used for hyperparameter selection, preventing optimistic
+      bias from data leakage.
+
+  group_kfold:
+    short: "Group k-fold CV"
+    text: >
+      Group k-fold cross-validation with {{n_folds}} folds was
+      used to ensure that samples from the same group
+      (column: ``{{group_col}}'') appeared in either the training
+      or test set but never both, preventing within-group leakage.
+
+  external:
+    short: "External test set"
+    text: >
+      An external, independently collected test set was used for
+      final evaluation. The training set was used for model fitting
+      and the external test set was held out entirely during training.
+
+# ─────────────────────────────────────────────
+# Quantum encoding
+# ─────────────────────────────────────────────
+
+encoding:
+  amplitude:
+    short: "Amplitude encoding"
+    text: >
+      For quantum models, the classical feature vector was prepared
+      for quantum circuit input via amplitude encoding. Each
+      {{n_features}}-dimensional sample was zero-padded to the
+      next power of two ({{pad_len}} dimensions) and L2-normalized,
+      yielding a valid quantum state vector on {{n_qubits}} qubits.
+      Rows with zero norm were mapped to the computational basis
+      state $|0\rangle^{\otimes {{n_qubits}}}$.
+    cite: "Schuld2018"
+
+  angle:
+    short: "Angle encoding"
+    text: >
+      Angle encoding was used, mapping each feature to a single-qubit
+      rotation angle. This requires one qubit per feature, yielding
+      {{n_qubits}} qubits for {{n_features}} features.
+    cite: "Schuld2018"
+
+# ─────────────────────────────────────────────
+# Models — classical
+# ─────────────────────────────────────────────
+
+models:
+  xgboost:
+    short: "XGBoost"
+    text: >
+      XGBoost (eXtreme Gradient Boosting) is a gradient-boosted
+      decision tree ensemble that constructs an additive model of
+      shallow trees, optimizing a regularized objective via
+      second-order Taylor expansion of the loss function.
+      {{param_text}}
+    cite: "Chen2016"
+
+  lightgbm:
+    short: "LightGBM"
+    text: >
+      LightGBM is a gradient boosting framework that uses
+      histogram-based split finding and leaf-wise tree growth
+      for improved training speed and memory efficiency compared
+      to level-wise approaches.
+      {{param_text}}
+    cite: "Ke2017"
+
+  catboost:
+    short: "CatBoost"
+    text: >
+      CatBoost is a gradient boosting algorithm that uses ordered
+      boosting and symmetric (oblivious) decision trees to reduce
+      prediction shift and handle categorical features natively.
+      {{param_text}}
+    cite: "Prokhorenkova2018"
+
+  mlp:
+    short: "Multi-layer perceptron"
+    text: >
+      A multi-layer perceptron (MLP) classifier was used, consisting
+      of fully connected layers with ReLU activation and trained via
+      stochastic gradient descent with the Adam optimizer.
+      {{param_text}}
+
+  tabpfn:
+    short: "TabPFN"
+    text: >
+      TabPFN (Tabular Prior-Data Fitted Network) is a transformer-based
+      model pre-trained on synthetic tabular datasets via prior-fitting.
+      It performs in-context learning at inference time without
+      gradient-based training on the target dataset.
+      {{param_text}}
+    cite: "Hollmann2023"
+
+  debinn:
+    short: "DEBI-NN"
+    text: >
+      DEBI-NN (Decision Explanation by Bayesian Inference Neural
+      Network) is a C++ neural network invoked as an external
+      subprocess. It reads structured settings files and produces
+      predictions in a standardized CSV format.
+      {{param_text}}
+
+  cnn_2d:
+    short: "2D CNN"
+    text: >
+      A 2D convolutional neural network (CNN) was used for image
+      classification. The architecture consists of convolutional
+      layers with ReLU activation and max pooling, followed by
+      fully connected layers. The model was trained using
+      cross-entropy loss and the Adam optimizer.
+      {{param_text}}
+
+  cnn_3d:
+    short: "3D CNN"
+    text: >
+      A 3D convolutional neural network was used for volumetric
+      image classification. The architecture processes 3D input
+      volumes (e.g., PET/CT/MR) through 3D convolutional layers,
+      batch normalization, and 3D max pooling, followed by fully
+      connected layers. Training used cross-entropy loss with the
+      Adam optimizer.
+      {{param_text}}
+
+  # ── Quantum models ──
+
+  sq_kernel_svm:
+    short: "Simplified quantum kernel SVM"
+    text: >
+      A simplified quantum kernel SVM was employed, following the method
+      of Moradi et al.\ (2022). The quantum kernel
+      $k(\mathbf{x}, \mathbf{y}) = |\langle 0^{\otimes n}|U^\dagger(\mathbf{y})
+      U(\mathbf{x})|0^{\otimes n}\rangle|^2$ was computed using
+      M\"ottonen state preparation on {{n_qubits}} qubits. Unlike a
+      full SVM, predictions were obtained via the linear combination
+      $\mu = \mathbf{y}_\text{train} \cdot K(X_\text{train}, X_\text{test})$
+      and thresholded at zero. This approach is equivalent to a kernel
+      Gaussian process without noise regularization.
+      {{param_text}}
+    cite: "Moradi2022"
+
+  qdc_hadamard:
+    short: "Quantum distance classifier (Hadamard)"
+    text: >
+      A quantum distance classifier using the Hadamard test was employed,
+      following Moradi et al.\ (2022). The circuit uses an ancilla qubit
+      and $n = \lceil\log_2 d\rceil$ data qubits (total $n+1$ qubits),
+      where controlled M\"ottonen state preparation encodes two samples
+      conditioned on the ancilla state. A Hadamard test on the ancilla
+      yields the overlap (similarity) between the two quantum states.
+      Training samples are separated by class; at test time, the
+      maximum similarity to each class is compared to assign the
+      predicted label.
+      {{param_text}}
+    cite: "Moradi2022"
+
+  qdc_swap:
+    short: "Quantum distance classifier (SWAP)"
+    text: >
+      A quantum distance classifier using the SWAP test was employed,
+      following Moradi et al.\ (2022). The circuit uses two $n$-qubit
+      registers plus an ancilla ($2n+1$ qubits total). Each register
+      encodes one sample via M\"ottonen state preparation, and controlled
+      SWAP gates on each qubit pair compute the state overlap through
+      ancilla measurement. As with the Hadamard variant, class-separated
+      maximum similarity determines the prediction.
+      {{param_text}}
+    cite: "Moradi2022"
+
+  quantum_gp:
+    short: "Quantum Gaussian process"
+    text: >
+      A quantum Gaussian process (GP) classifier was used, following
+      Moradi et al.\ (2023). The GP prior covariance is given by the
+      quantum kernel computed via M\"ottonen state preparation on
+      {{n_qubits}} qubits. Full GP inference was performed:
+      $\mu_* = K(X_*, X)^\top [K(X, X) + \sigma^2 I]^{-1} \mathbf{y}$,
+      with posterior variance used in a probit-like sigmoid approximation
+      for classification probabilities. Noise regularization
+      $\sigma^2 = {{noise}}$ was applied to the training kernel matrix.
+      {{param_text}}
+    cite: "Moradi2023"
+
+  qnn:
+    short: "Quantum neural network"
+    text: >
+      A quantum neural network (QNN) was used, following Moradi et al.\
+      (2023). The architecture creates one variational quantum circuit
+      per class (one-vs-rest), each consisting of M\"ottonen state
+      preparation followed by {{n_layers}} layers of parameterized
+      $R(\phi,\theta,\omega)$ rotations and circular CNOT entanglement
+      on {{n_qubits}} qubits. Each circuit includes a classical bias
+      term. Training was performed for {{epochs}} epochs using the Adam
+      optimizer (learning rate {{lr}}) with a margin-based hinge loss
+      ($\Delta = {{margin}}$). At inference, the class whose circuit
+      produces the highest score is selected as the prediction.
+      {{param_text}}
+    cite: "Moradi2023"
+
+  kernel_svm:
+    short: "Quantum kernel SVM"
+    text: >
+      A quantum kernel support vector machine was employed. The
+      quantum kernel $k(\mathbf{x}, \mathbf{y}) =
+      |\langle \mathbf{x} | \mathbf{y} \rangle|^2$ was computed
+      by preparing amplitude-encoded states on {{n_qubits}} qubits
+      using PennyLane's \texttt{default.qubit} simulator and
+      measuring the projector $|\mathbf{y}\rangle\langle\mathbf{y}|$.
+      The resulting kernel matrix was passed to a classical SVM
+      with \texttt{kernel='precomputed'} and probability calibration
+      via Platt scaling.
+      {{param_text}}
+    cite: "Havlicek2019"
+
+  qcnn_muw:
+    short: "QCNN (MUW variant)"
+    text: >
+      A quantum convolutional neural network (QCNN) following the
+      MUW (Medical University of Vienna) design was used. The circuit
+      operates on {{n_qubits}} qubits with amplitude-encoded input.
+      Each convolutional layer applies parameterized two-qubit gates
+      (U3 rotations and Ising XX/YY/ZZ interactions, 15 parameters
+      per kernel) followed by a controlled-rotation pooling layer that
+      halves the number of active qubits. A final
+      \texttt{ArbitraryUnitary} gate acts on the remaining active
+      wires, and the output probability is obtained via a projector
+      measurement on the first active qubit.
+      The circuit was trained for {{epochs}} epochs with a learning
+      rate of {{lr}} using the Adam optimizer on a binary
+      cross-entropy loss, evaluated on the PennyLane
+      \texttt{default.qubit} simulator with backpropagation-based
+      gradient computation.
+      {{param_text}}
+    cite: "PappUnderRevision"
+
+  qcnn_alt:
+    short: "QCNN (ALT variant)"
+    text: >
+      An alternative QCNN architecture (ALT) was used, sharing the
+      same conv-pool-unitary structure as the MUW variant but with
+      a different parameterization of the convolutional kernel gates.
+      The circuit operates on {{n_qubits}} qubits with
+      amplitude-encoded input and was trained for {{epochs}} epochs
+      at learning rate {{lr}}.
+      {{param_text}}
+
+  vqc:
+    short: "Variational quantum classifier (deprecated, use qnn)"
+    text: >
+      A variational quantum classifier (VQC) stub. This model has been
+      superseded by the \texttt{qnn} model, which implements the full
+      per-class variational circuit architecture from Moradi et al.\ (2023).
+      {{param_text}}
+    cite: "Schuld2020"
+
+  hybrid:
+    short: "Hybrid quantum-classical"
+    text: >
+      A hybrid quantum-classical model was used, combining a
+      parameterized quantum circuit with a classical neural network
+      head. The quantum sub-circuit produces a feature embedding
+      that is processed by dense layers for final classification.
+      {{param_text}}
+
+  ensemble:
+    short: "Ensemble (softmax averaging)"
+    text: >
+      Model predictions were aggregated via softmax averaging:
+      per-class probability vectors from individual models were
+      averaged element-wise, and the class with the highest
+      average probability was selected as the ensemble prediction.
+
+# ─────────────────────────────────────────────
+# Metrics
+# ─────────────────────────────────────────────
+
+metrics:
+  bacc:
+    short: "Balanced accuracy"
+    text: >
+      Balanced accuracy (BACC), defined as the arithmetic mean of
+      sensitivity and specificity, was used as the primary
+      performance metric to account for potential class imbalance.
+
+  auc:
+    short: "AUC"
+    text: >
+      The area under the receiver operating characteristic curve
+      (AUC-ROC) was computed from the predicted class probabilities.
+
+  sensitivity:
+    short: "Sensitivity"
+    text: >
+      Sensitivity (true positive rate, recall) was computed as
+      $\text{TP} / (\text{TP} + \text{FN})$.
+
+  specificity:
+    short: "Specificity"
+    text: >
+      Specificity (true negative rate) was computed as
+      $\text{TN} / (\text{TN} + \text{FP})$.
+
+  ppv:
+    short: "PPV"
+    text: >
+      Positive predictive value (precision) was computed as
+      $\text{TP} / (\text{TP} + \text{FP})$.
+
+  npv:
+    short: "NPV"
+    text: >
+      Negative predictive value was computed as
+      $\text{TN} / (\text{TN} + \text{FN})$.
+
+  accuracy:
+    short: "Accuracy"
+    text: >
+      Overall accuracy was computed as the fraction of correctly
+      classified samples.
+
+  logloss:
+    short: "Log-loss"
+    text: >
+      Logarithmic loss (cross-entropy) was computed from the
+      predicted class probabilities and the true labels.
+
+  mae:
+    short: "MAE"
+    text: >
+      Mean absolute error (MAE) was used to measure average
+      prediction deviation for regression tasks.
+
+  mse:
+    short: "MSE"
+    text: >
+      Mean squared error (MSE) penalizes larger deviations
+      quadratically.
+
+  r2:
+    short: "R²"
+    text: >
+      The coefficient of determination ($R^2$) quantifies the
+      proportion of variance in the target explained by the model.
+
+# ─────────────────────────────────────────────
+# Geometric difference score
+# ─────────────────────────────────────────────
+
+gdq:
+  default:
+    short: "Geometric Difference score (GDQ)"
+    text: >
+      The Geometric Difference score (GDQ) was computed to assess whether
+      the quantum kernel captures structure inaccessible to a classical
+      (linear) kernel. The score is defined as
+      $\text{GDQ} = \sqrt{\|K_Q^{1/2} K_C^{-1} K_Q^{1/2}\|_\sigma}$,
+      where $K_Q$ and $K_C$ are the quantum and classical kernel matrices,
+      respectively, and $\|\cdot\|_\sigma$ denotes the spectral norm.
+      A value $\text{GDQ} > 1$ suggests the quantum kernel provides
+      a geometric advantage over the classical kernel.
+    cite: "Moradi2022"
+
+# ─────────────────────────────────────────────
+# Threshold optimization
+# ─────────────────────────────────────────────
+
+threshold:
+  youden:
+    text: >
+      For binary classification, the decision threshold was
+      optimized on the training data using Youden's J statistic
+      ($J = \text{TPR} - \text{FPR}$), selecting the threshold
+      that maximizes balanced accuracy. This is particularly
+      important for quantum models, whose predicted probabilities
+      tend to cluster near 0.5.
+
+# ─────────────────────────────────────────────
+# Statistical tests
+# ─────────────────────────────────────────────
+
+statistical_tests:
+  friedman:
+    short: "Friedman test with Nemenyi post-hoc"
+    text: >
+      To assess whether performance differences among models were
+      statistically significant, the Friedman test was applied to
+      the per-fold metric ranks. When the Friedman test rejected
+      the null hypothesis of equal performance ($p < 0.05$), the
+      Nemenyi post-hoc test was used for pairwise comparisons,
+      with results visualized in a critical difference diagram.
+    cite: "Demsar2006"
+
+  bootstrap:
+    text: >
+      Bootstrap confidence intervals ({{confidence_pct}}% CI) were
+      computed using {{n_bootstrap}} resamples of the per-fold
+      metric values.
+
+# ─────────────────────────────────────────────
+# Explainability
+# ─────────────────────────────────────────────
+
+explainability:
+  shap:
+    short: "SHAP"
+    text: >
+      Feature importance was assessed using SHAP (SHapley Additive
+      exPlanations) values, which attribute model predictions to
+      input features based on cooperative game theory. A
+      permutation-based explainer was used to ensure compatibility
+      with all model types, including quantum models. SHAP values
+      were computed for up to {{max_test_samples}} test samples
+      using {{max_features}} features.
+    cite: "Lundberg2017"
+
+  lime:
+    short: "LIME"
+    text: >
+      Local Interpretable Model-agnostic Explanations (LIME) were
+      generated by fitting interpretable surrogate models (sparse
+      linear models) to local perturbations of each test sample.
+      LIME explanations were computed for up to
+      {{max_test_samples}} test samples with {{max_features}}
+      features.
+    cite: "Ribeiro2016"
+
+  gradcam:
+    short: "Grad-CAM"
+    text: >
+      Gradient-weighted Class Activation Mapping (Grad-CAM) was
+      applied to CNN models to visualize which spatial regions
+      of the input image contributed most to the classification
+      decision.
+    cite: "Selvaraju2017"
+
+# ─────────────────────────────────────────────
+# Parameter formatting helpers
+# ─────────────────────────────────────────────
+
+param_descriptions:
+  n_estimators: "the number of boosting rounds was set to {{value}}"
+  iterations: "the number of boosting iterations was set to {{value}}"
+  max_iter: "the maximum number of training iterations was {{value}}"
+  hidden_layer_sizes: "the hidden layer architecture was {{value}}"
+  learning_rate: "the learning rate was {{value}}"
+  lr: "the learning rate was {{value}}"
+  epochs: "training was performed for {{value}} epochs"
+  batch_size: "with a mini-batch size of {{value}}"
+  n_qubits: "the circuit used {{value}} qubits"
+  shots: "with {{value}} measurement shots per circuit evaluation"
+  init_scale: "parameter initialization scale was {{value}}"
+  noise: "a noise parameter of {{value}} was used for kernel regularization"
+  margin: "a margin of {{value}} was used in the multi-class hinge loss"
+  num_layers: "the circuit depth was {{value}} variational layers"
+  n_layers: "the circuit depth was {{value}} variational layers"
+  spearman_threshold: "redundant features with Spearman ρ > {{value}} were clustered"
+  image_normalization: "image volumes were normalized using {{value}} strategy"
+  verbose: ~
+  seed: ~

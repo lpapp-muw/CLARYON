@@ -17,6 +17,36 @@ from sklearn.preprocessing import QuantileTransformer
 logger = logging.getLogger(__name__)
 
 
+def fit_zscore(X_train: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Compute z-score parameters from training data.
+
+    Args:
+        X_train: Training feature matrix, shape (n_samples, n_features).
+
+    Returns:
+        (mean, std) arrays each of shape (n_features,).
+    """
+    mean = np.mean(X_train, axis=0)
+    std = np.std(X_train, axis=0)
+    return mean, std
+
+
+def apply_zscore(
+    X: np.ndarray, mean: np.ndarray, std: np.ndarray
+) -> np.ndarray:
+    """Apply z-score normalization using pre-computed parameters.
+
+    Args:
+        X: Feature matrix, shape (n_samples, n_features).
+        mean: Per-feature mean from training data.
+        std: Per-feature std from training data.
+
+    Returns:
+        Z-score normalized array.
+    """
+    return (X - mean) / np.maximum(std, 1e-12)
+
+
 @dataclass
 class PreprocessingResult:
     """Result of tabular preprocessing.

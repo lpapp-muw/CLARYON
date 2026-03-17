@@ -27,16 +27,19 @@ catboost_info/
 *.log
 !scripts/*.sh
 
-# Validation logs (regenerated on every run)
+# Validation logs
 validation_*.log
 fix_log.txt
 
 # BLOCKED sentinel
 BLOCKED
 
-# Benchmark runtime data (downloaded datasets)
+# Benchmark runtime data
 benchmark_data/
 downloaded_datasets/
+
+# Source archive (all ports verified, removed in v0.11.0)
+source_archive/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -47,6 +50,5 @@ htmlcov/
 .pytest_cache/
 
 # Do NOT ignore:
-# tests/fixtures/data/  ← committed synthetic test data
-# source_archive/       ← committed reference source files
-# CLAUDE.md             ← committed orchestration file
+# tests/fixtures/data/  <- committed synthetic test data
+# docs/                 <- committed documentation

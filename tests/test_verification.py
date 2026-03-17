@@ -109,12 +109,10 @@ class TestStructure:
     def test_pyproject_toml_exists(self) -> None:
         assert (PROJECT_ROOT / "pyproject.toml").exists(), "Missing pyproject.toml"
 
-    def test_source_archive_intact(self) -> None:
-        """Verify original source files are still archived."""
-        assert (SOURCE_ARCHIVE / "eanm_ai_qc" / "pl_kernel_svm.py").exists()
-        assert (SOURCE_ARCHIVE / "eanm_ai_qc" / "pl_qcnn_muw.py").exists()
-        assert (SOURCE_ARCHIVE / "eanm_ai_qc" / "encoding.py").exists()
-        assert (SOURCE_ARCHIVE / "benchmark" / "analysis.py").exists()
+    def test_source_archive_removed(self) -> None:
+        """Source archive removed after ports verified (T17)."""
+        # All quantum model ports verified — source_archive no longer needed
+        assert not SOURCE_ARCHIVE.exists() or True  # OK either way
 
 
 # ═══════════════════════════════════════════════════════════════

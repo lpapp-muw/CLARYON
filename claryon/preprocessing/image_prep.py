@@ -12,6 +12,54 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def normalize_images(
+    volumes: np.ndarray,
+    mode: str = "per_image",
+    global_min: Optional[float] = None,
+    global_max: Optional[float] = None,
+) -> Tuple[np.ndarray, float, float]:
+    """Normalize image volumes to [0, 1].
+
+    Args:
+        volumes: Image array, shape (N, ...).
+        mode: "per_image" scales each volume independently;
+              "cohort_global" uses global_min/max from training set.
+        global_min: Training set global min (required for cohort_global).
+        global_max: Training set global max (required for cohort_global).
+
+    Returns:
+        (normalized_volumes, used_min, used_max)
+    """
+    if mode == "per_image":
+        out = np.empty_like(volumes, dtype=np.float64)
+        used_min = float(volumes.min())
+        used_max = float(volumes.max())
+        for i in range(volumes.shape[0]):
+            vmin = volumes[i].min()
+            vmax = volumes[i].max()
+            denom = vmax - vmin
+            if denom > 0:
+                out[i] = (volumes[i] - vmin) / denom
+            else:
+                out[i] = 0.0
+        return out, used_min, used_max
+
+    elif mode == "cohort_global":
+        if global_min is None:
+            global_min = float(volumes.min())
+        if global_max is None:
+            global_max = float(volumes.max())
+        denom = global_max - global_min
+        if denom > 0:
+            out = np.clip((volumes - global_min) / denom, 0.0, 1.0).astype(np.float64)
+        else:
+            out = np.zeros_like(volumes, dtype=np.float64)
+        return out, global_min, global_max
+
+    else:
+        raise ValueError(f"Unknown normalization mode: {mode!r}")
+
+
 def normalize_volume(
     volume: np.ndarray,
     method: str = "zscore",
