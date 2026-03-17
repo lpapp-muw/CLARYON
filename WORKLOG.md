@@ -8,27 +8,27 @@
 
 | Field | Value |
 |---|---|
-| **Phase** | 11.1 — bugfixes |
-| **Last completed item** | Polish session (presets, auto mode, GDQ, CLI, docs, cleanup) |
-| **Next item to build** | Fix 8 known bugs from results analysis |
+| **Phase** | 11.1 — bugfixes (COMPLETE) |
+| **Last completed item** | Fixed all 8 known bugs from results analysis |
+| **Next item to build** | TBD |
 | **Blockers** | None |
 | **CURRENT_PHASE** | 11.1 |
-| **CURRENT_STEP** | bugfix |
+| **CURRENT_STEP** | done |
 
 ---
 
-## 2. Known Bugs
+## 2. Known Bugs — ALL FIXED (v0.11.1-bugfix)
 
-| # | Bug | Severity | Location |
+| # | Bug | Status | Fix |
 |---|---|---|---|
-| 1 | Multiclass AUC returns NaN | Medium | evaluation/metrics.py |
-| 2 | Structured methods.tex not wired after preprocessing rewrite | Medium | pipeline.py stage_report |
-| 3 | Float precision in metrics_summary.csv (0.9949999999 instead of 0.995) | Low | metrics CSV writer |
-| 4 | Empty fields instead of NaN in metrics_summary.csv | Low | metrics CSV writer |
-| 5 | iris_full missing preprocessing_state.json (verify current pipeline produces it) | Low | pipeline.py |
-| 6 | Ensemble row auto-appears without config (verify if intentional) | Low | pipeline.py or stage_evaluate |
-| 7 | report.md missing std values | Low | reporting/markdown_report.py |
-| 8 | results.tex missing std values | Low | reporting/latex_report.py |
+| 1 | Multiclass AUC returns NaN | FIXED | `multi_class="ovr", average="weighted"` for >2 classes |
+| 2 | Structured methods.tex not wired | FIXED | Removed duplicate simple-template overwrite in stage_report |
+| 3 | Float precision in metrics_summary.csv | FIXED | Round numeric columns to 6 decimal places |
+| 4 | Empty fields instead of NaN | FIXED | `na_rep="NaN"` in CSV writer |
+| 5 | iris_full missing preprocessing_state.json | VERIFIED | Default PreprocessingConfig produces it (70 files for iris_full) |
+| 6 | Ensemble row auto-appears without config | BY DESIGN | Auto-ensemble for 2+ models in LaTeX results only |
+| 7 | report.md missing std values | FIXED | `mean ± std` format via format_metric helper |
+| 8 | results.tex missing std values | FIXED | `mean $\pm$ std` format via format_metric_latex helper |
 
 ---
 
