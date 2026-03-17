@@ -121,12 +121,14 @@ def metric_auc(y_true: np.ndarray, y_pred: np.ndarray, probabilities: Optional[n
     if probabilities is None:
         return float("nan")
     try:
-        if probabilities.ndim == 2:
-            prob1 = probabilities[:, 1] if probabilities.shape[1] == 2 else probabilities[:, 0]
+        n_classes = probabilities.shape[1] if probabilities.ndim > 1 else 2
+        if n_classes > 2:
+            return float(roc_auc_score(y_true, probabilities, multi_class="ovr", average="weighted"))
         else:
-            prob1 = probabilities
-        return float(roc_auc_score(y_true, prob1))
-    except Exception:
+            probs = probabilities[:, 1] if probabilities.ndim > 1 else probabilities
+            return float(roc_auc_score(y_true, probs))
+    except Exception as e:
+        logger.warning("AUC computation failed: %s", e)
         return float("nan")
 
 
