@@ -393,6 +393,9 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
     feature_names = ds.feature_names or [f"f{i}" for i in range(ds.n_features)]
     is_tabular = ds.X.ndim == 2
 
+    # Auto complexity resolution (deferred until first fold provides n_features_after_mrmr)
+    auto_presets: Optional[Dict[str, str]] = None
+
     for model_entry in config.models:
         model_name = model_entry.name
         logger.info("Training model: %s", model_name)
@@ -445,17 +448,29 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                             X_train, _, _ = normalize_images(X_train, mode="per_image")
                             X_test, _, _ = normalize_images(X_test, mode="per_image")
 
+                    # Auto complexity: resolve once on first fold
+                    if config.experiment.complexity == "auto" and auto_presets is None:
+                        from .models.auto_complexity import auto_select_presets
+                        n_feat_after = (preproc_state.n_features_selected
+                                        if preproc_state else X_train.shape[1])
+                        auto_presets = auto_select_presets(
+                            config, ds.n_samples, ds.n_features, n_feat_after,
+                        )
+
                     # Amplitude-encode for quantum models
                     X_tr_use, X_te_use = X_train, X_test
 
                     # Resolve preset parameters
                     from .models.preset_resolver import resolve_model_params
+                    effective_complexity = config.experiment.complexity
+                    if auto_presets and model_entry.name in auto_presets:
+                        effective_complexity = auto_presets[model_entry.name]
                     params = resolve_model_params(
                         model_name=model_entry.name,
                         model_type=model_entry.type,
                         explicit_params=dict(model_entry.params),
                         model_preset=model_entry.preset,
-                        global_complexity=config.experiment.complexity,
+                        global_complexity=effective_complexity,
                     )
                     if model_entry.type == "tabular_quantum":
                         from .encoding.amplitude import amplitude_encode_matrix
@@ -465,6 +480,31 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                         params["n_qubits"] = enc_info.n_qubits
                         logger.info("  Amplitude encoded: %d features -> %d (n_qubits=%d)",
                                     X_train.shape[1], enc_info.encoded_dim, enc_info.n_qubits)
+
+                    # Preflight resource check
+                    n_qubits = params.get("n_qubits", 0)
+                    if model_entry.type in ("tabular_quantum",):
+                        from .safety import preflight_resource_check, get_available_memory_gb, estimate_memory_gb
+                        warnings = preflight_resource_check(
+                            model_name, model_entry.type,
+                            len(y_train), n_qubits, params,
+                        )
+                        for w in warnings:
+                            logger.warning("  %s", w)
+                        # Check if estimated memory exceeds 80% of available
+                        est_gb = estimate_memory_gb(model_name, n_qubits, len(y_train))
+                        avail_gb = get_available_memory_gb()
+                        if est_gb > 0.8 * avail_gb:
+                            logger.error(
+                                "SKIPPING %s: estimated memory %.1f GB exceeds "
+                                "80%% of available %.1f GB.",
+                                model_name, est_gb, avail_gb,
+                            )
+                            model_results.append({
+                                "seed": seed, "fold": fold,
+                                "status": "skipped_memory",
+                            })
+                            continue
 
                     try:
                         model = model_cls(**params)
@@ -512,6 +552,12 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                         "n_train": len(y_train), "n_test": len(y_test),
                         "status": "ok",
                     })
+                except MemoryError:
+                    logger.error("  OUT OF MEMORY during %s training. Skipping.", model_name)
+                    model_results.append({
+                        "seed": seed, "fold": fold, "status": "oom",
+                    })
+                    continue
                 except Exception as e:
                     logger.error("  FAILED: %s", e)
                     model_results.append({
