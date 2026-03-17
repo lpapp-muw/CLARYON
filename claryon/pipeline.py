@@ -708,6 +708,15 @@ def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
                 shap_result = shap_exp.explain(predict_fn, X_test, feature_names=feature_names, X_train=X_train)
                 # Save SHAP values
                 np.save(explain_dir / "shap_values.npy", shap_result["shap_values"])
+                # Generate SHAP plots
+                from .explainability.plots import generate_shap_plots
+                generate_shap_plots(
+                    shap_result["shap_values"],
+                    feature_names=feature_names,
+                    X_test=X_test,
+                    output_dir=explain_dir,
+                    dpi=config.reporting.figure_dpi,
+                )
                 logger.info("  SHAP explanations saved for %s", model_name)
             except Exception as e:
                 logger.error("  SHAP failed for %s: %s", model_name, e)
@@ -724,6 +733,13 @@ def stage_explain(config: ClaryonConfig, state: PipelineState) -> None:
                 import json
                 with open(explain_dir / "lime_explanations.json", "w") as f:
                     json.dump(lime_result["explanations"], f, indent=2, default=str)
+                # Generate LIME plots
+                from .explainability.plots import generate_lime_plots
+                generate_lime_plots(
+                    lime_result["explanations"],
+                    output_dir=explain_dir,
+                    dpi=config.reporting.figure_dpi,
+                )
                 logger.info("  LIME explanations saved for %s", model_name)
             except Exception as e:
                 logger.error("  LIME failed for %s: %s", model_name, e)

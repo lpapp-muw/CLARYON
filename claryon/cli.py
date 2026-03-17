@@ -9,6 +9,17 @@ from . import __version__
 
 logger = logging.getLogger(__name__)
 
+BANNER = r"""
+   _____ _        _    ______   _____  _   _
+  / ____| |      / \  |  _ \ \ / / _ \| \ | |
+ | |    | |     / _ \ | |_) \ V / | | |  \| |
+ | |    | |    / ___ \|  _ < | || |_| | |\  |
+  \____|_|___/_/   \_\_| \_\|_| \___/|_| \_|
+
+  CLassical-quantum AI for Reproducible
+  Explainable OpeN-source medicine       v{version}
+"""
+
 
 def _add_config_arg(parser: argparse.ArgumentParser) -> None:
     """Add the --config argument to a subcommand parser."""
@@ -17,8 +28,17 @@ def _add_config_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _print_banner() -> None:
+    """Print the CLARYON ASCII banner to stderr."""
+    import sys
+    sys.stderr.write(BANNER.format(version=__version__))
+    sys.stderr.write("\n")
+    sys.stderr.flush()
+
+
 def cmd_run(args: argparse.Namespace) -> None:
     """Execute a full experiment from config."""
+    _print_banner()
     logger.info("Running full experiment: %s", args.config)
     from .config_schema import load_config
     config = load_config(args.config)
@@ -58,6 +78,7 @@ def cmd_report(args: argparse.Namespace) -> None:
 
 def cmd_infer(args: argparse.Namespace) -> None:
     """Run inference on new data using a saved model."""
+    _print_banner()
     from .inference import run_inference
     run_inference(
         model_dir=args.model_dir,
