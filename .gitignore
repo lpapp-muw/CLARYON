@@ -52,3 +52,4 @@ htmlcov/
 # Do NOT ignore:
 # tests/fixtures/data/  <- committed synthetic test data
 # docs/                 <- committed documentation
+catboost_info/
