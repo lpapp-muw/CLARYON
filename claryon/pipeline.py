@@ -536,6 +536,21 @@ def stage_train(config: ClaryonConfig, state: PipelineState) -> None:
                     if preproc_state is not None:
                         preproc_state.save(pred_dir / "preprocessing_state.json")
 
+                    # Save model to disk
+                    if hasattr(model, "save"):
+                        try:
+                            model.save(pred_dir)
+                            logger.info("  Model saved to %s", pred_dir)
+                        except Exception as save_err:
+                            logger.warning("  Model save failed: %s", save_err)
+
+                    # Save resolved params
+                    import json as _json
+                    params_path = pred_dir / "model_params.json"
+                    params_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(params_path, "w") as _pf:
+                        _json.dump(params, _pf, indent=2, default=str)
+
                     # Persist last fitted model + data for explainability
                     state.fitted_models[model_name] = {
                         "model": model,
@@ -842,6 +857,65 @@ def stage_report(config: ClaryonConfig, state: PipelineState) -> None:
         )
 
 
+def _write_provenance(config: ClaryonConfig, state: PipelineState, runtime_seconds: float) -> None:
+    """Write provenance metadata to results directory.
+
+    Args:
+        config: Experiment configuration.
+        state: Pipeline state.
+        runtime_seconds: Total pipeline runtime.
+    """
+    import hashlib
+    import json
+    import platform
+    import socket
+    import subprocess
+    from datetime import datetime, timezone
+
+    from . import __version__
+
+    results_dir = state.results_dir
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Git commit (if available)
+    git_commit = ""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            git_commit = result.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+    # Config hash
+    import yaml
+    config_yaml = yaml.dump(config.model_dump(), default_flow_style=False)
+    config_hash = "sha256:" + hashlib.sha256(config_yaml.encode()).hexdigest()[:12]
+
+    run_info = {
+        "claryon_version": __version__,
+        "python_version": platform.python_version(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "hostname": socket.gethostname(),
+        "config_hash": config_hash,
+        "git_commit": git_commit,
+        "runtime_seconds": round(runtime_seconds, 1),
+        "n_models": len(config.models),
+        "n_folds": config.cv.n_folds,
+        "n_seeds": len(config.cv.seeds),
+    }
+
+    with open(results_dir / "run_info.json", "w") as f:
+        json.dump(run_info, f, indent=2)
+    logger.info("Wrote run_info.json to %s", results_dir)
+
+    # Copy config used
+    with open(results_dir / "config_used.yaml", "w") as f:
+        f.write(config_yaml)
+
+
 def run_pipeline(config: ClaryonConfig) -> PipelineState:
     """Execute all pipeline stages in order.
 
@@ -851,7 +925,10 @@ def run_pipeline(config: ClaryonConfig) -> PipelineState:
     Returns:
         PipelineState with results from all stages.
     """
+    import time
+
     logger.info("Pipeline start: experiment=%s", config.experiment.name)
+    t_start = time.monotonic()
 
     from .determinism import enforce_determinism
     enforce_determinism(config.experiment.seed)
@@ -873,5 +950,8 @@ def run_pipeline(config: ClaryonConfig) -> PipelineState:
         logger.info("=== Stage: %s ===", name)
         fn(config, state)
 
-    logger.info("Pipeline complete: experiment=%s", config.experiment.name)
+    runtime = time.monotonic() - t_start
+    _write_provenance(config, state, runtime)
+
+    logger.info("Pipeline complete: experiment=%s (%.1fs)", config.experiment.name, runtime)
     return state

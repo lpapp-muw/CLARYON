@@ -29,31 +29,44 @@ def cmd_run(args: argparse.Namespace) -> None:
 def cmd_preprocess(args: argparse.Namespace) -> None:
     """Run preprocessing stage only."""
     logger.info("Preprocessing: %s", args.config)
-    print("preprocess: not yet implemented")
+    logger.warning("preprocess: not yet implemented")
 
 
 def cmd_train(args: argparse.Namespace) -> None:
     """Run training stage only."""
     logger.info("Training: %s", args.config)
-    print("train: not yet implemented")
+    logger.warning("train: not yet implemented")
 
 
 def cmd_evaluate(args: argparse.Namespace) -> None:
     """Run evaluation stage only."""
     logger.info("Evaluating: %s", args.config)
-    print("evaluate: not yet implemented")
+    logger.warning("evaluate: not yet implemented")
 
 
 def cmd_explain(args: argparse.Namespace) -> None:
     """Run explainability stage only."""
     logger.info("Explaining: %s", args.config)
-    print("explain: not yet implemented")
+    logger.warning("explain: not yet implemented")
 
 
 def cmd_report(args: argparse.Namespace) -> None:
     """Generate reports."""
     logger.info("Reporting: %s", args.config)
-    print("report: not yet implemented")
+    logger.warning("report: not yet implemented")
+
+
+def cmd_infer(args: argparse.Namespace) -> None:
+    """Run inference on new data using a saved model."""
+    from .inference import run_inference
+    run_inference(
+        model_dir=args.model_dir,
+        input_path=args.input,
+        output_path=args.output,
+        sep=getattr(args, "sep", ";"),
+        id_col=getattr(args, "id_col", "Key"),
+        label_col=getattr(args, "label_col", None),
+    )
 
 
 def cmd_list_models(args: argparse.Namespace) -> None:
@@ -61,10 +74,10 @@ def cmd_list_models(args: argparse.Namespace) -> None:
     from .registry import list_registered
     models = list_registered("model")
     if not models:
-        print("No models registered.")
+        sys.stdout.write("No models registered.\n")
     else:
         for name in sorted(models):
-            print(f"  {name}")
+            sys.stdout.write(f"  {name}\n")
 
 
 def cmd_list_metrics(args: argparse.Namespace) -> None:
@@ -72,10 +85,10 @@ def cmd_list_metrics(args: argparse.Namespace) -> None:
     from .registry import list_registered
     metrics = list_registered("metric")
     if not metrics:
-        print("No metrics registered.")
+        sys.stdout.write("No metrics registered.\n")
     else:
         for name in sorted(metrics):
-            print(f"  {name}")
+            sys.stdout.write(f"  {name}\n")
 
 
 def cmd_validate_config(args: argparse.Namespace) -> None:
@@ -83,9 +96,9 @@ def cmd_validate_config(args: argparse.Namespace) -> None:
     from .config_schema import load_config
     try:
         config = load_config(args.config)
-        print(f"Config valid: {config.experiment.name}")
+        sys.stdout.write(f"Config valid: {config.experiment.name}\n")
     except Exception as e:
-        print(f"Config invalid: {e}", file=sys.stderr)
+        sys.stderr.write(f"Config invalid: {e}\n")
         sys.exit(1)
 
 
@@ -133,6 +146,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report", help="Generate reports")
     _add_config_arg(p)
     p.set_defaults(func=cmd_report)
+
+    # infer
+    p = sub.add_parser("infer", help="Run inference on new data using a saved model")
+    p.add_argument("--model-dir", required=True, help="Directory with saved model (fold-level)")
+    p.add_argument("--input", required=True, help="Path to input CSV")
+    p.add_argument("--output", required=True, help="Path to write predictions CSV")
+    p.add_argument("--sep", default=";", help="Input CSV separator")
+    p.add_argument("--id-col", default="Key", help="ID column name")
+    p.add_argument("--label-col", default=None, help="Label column (optional)")
+    p.set_defaults(func=cmd_infer)
 
     # list-models
     p = sub.add_parser("list-models", help="List registered models")
