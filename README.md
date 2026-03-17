@@ -612,4 +612,4 @@ GPL-3.0-or-later. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-Medical University of Vienna (MedUni Wien), EANM AI Committee, MORPHEDRON.
+Medical University of Vienna (MedUni Wien), EANM AI Committee.

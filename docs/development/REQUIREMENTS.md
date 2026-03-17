@@ -2,7 +2,7 @@
 
 **Version**: 0.3.1
 **Date**: 2026-03-16
-**Authors**: L. Papp (MedUni Wien / MORPHEDRON), Claude (Anthropic, scaffolding assistant)
+**Authors**: L. Papp (MedUni Wien / ), Claude (Anthropic, scaffolding assistant)
 **Status**: DRAFT — revision 3.1, renamed project to CLARYON
 
 ---
