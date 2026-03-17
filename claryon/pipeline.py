@@ -651,8 +651,11 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState) -> None:
     if summary_rows:
         import pandas as pd
         summary_df = pd.DataFrame(summary_rows)
+        # Round numeric columns to 6 decimal places for clean output
+        numeric_cols = summary_df.select_dtypes(include="number").columns
+        summary_df[numeric_cols] = summary_df[numeric_cols].round(6)
         summary_path = state.results_dir / "metrics_summary.csv"
-        summary_df.to_csv(summary_path, sep=";", index=False)
+        summary_df.to_csv(summary_path, sep=";", index=False, na_rep="NaN")
         logger.info("Wrote metrics summary to %s", summary_path)
 
 
