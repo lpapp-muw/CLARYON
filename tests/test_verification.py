@@ -68,7 +68,6 @@ class TestStructure:
         "claryon/models/classical/lightgbm_.py",
         "claryon/models/classical/catboost_.py",
         "claryon/models/classical/mlp_.py",
-        "claryon/models/classical/debinn_.py",
         "claryon/models/ensemble.py",
         # Phase 3 — Quantum models
         "claryon/models/quantum/kernel_svm.py",
