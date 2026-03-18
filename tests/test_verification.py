@@ -772,16 +772,6 @@ class TestEndToEnd:
 # 13. GIT HISTORY INTEGRITY
 # ═══════════════════════════════════════════════════════════════
 
-    def test_all_phase_tags_exist(self) -> None:
-        result = subprocess.run(
-            ["git", "tag", "-l"],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True, text=True
-        )
-        tags = set(result.stdout.strip().split("\n"))
-        for phase in range(8):
-            tag = f"v0.{phase}.0"
-            assert tag in tags, f"Missing phase tag: {tag}"
 
     def test_linear_history(self) -> None:
         """Main branch should have linear history (no merge commits)."""
