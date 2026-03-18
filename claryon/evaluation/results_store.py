@@ -8,11 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 import pandas as pd
 
-from ..io.predictions import read_predictions, infer_task_type, SEP
-from ..io.base import TaskType
+from ..io.predictions import read_predictions
 
 logger = logging.getLogger(__name__)
 

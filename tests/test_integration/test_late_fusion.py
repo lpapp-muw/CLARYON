@@ -10,7 +10,7 @@ from claryon.models.ensemble import ensemble_predictions
 
 def test_late_fusion_tabular_plus_images(tabular_binary_Xy_train, tabular_binary_Xy_test, synthetic_2d_images):
     """Late fusion: train MLP on tabular + CNN on images, ensemble predictions."""
-    torch = pytest.importorskip("torch")
+    pytest.importorskip("torch")
     from claryon.models.classical.mlp_ import MLPModel
     from claryon.models.classical.cnn_2d import CNN2DModel
 

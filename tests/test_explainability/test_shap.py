@@ -1,12 +1,11 @@
 """Tests for claryon.explainability.shap_ — SHAP explainer."""
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 
 def test_shap_on_classical_model(tabular_binary_Xy_train, tabular_binary_Xy_test):
-    shap = pytest.importorskip("shap")
+    pytest.importorskip("shap")
     from claryon.explainability.shap_ import SHAPExplainer
     from claryon.models.classical.mlp_ import MLPModel
     from claryon.io.base import TaskType
@@ -33,8 +32,8 @@ def test_shap_on_classical_model(tabular_binary_Xy_train, tabular_binary_Xy_test
 
 
 def test_shap_on_quantum_model(synthetic_amplitude_data):
-    shap = pytest.importorskip("shap")
-    qml = pytest.importorskip("pennylane")
+    pytest.importorskip("shap")
+    pytest.importorskip("pennylane")
     from claryon.explainability.shap_ import SHAPExplainer
     from claryon.models.quantum.kernel_svm import QuantumKernelSVM
     from claryon.io.base import TaskType

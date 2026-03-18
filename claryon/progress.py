@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 

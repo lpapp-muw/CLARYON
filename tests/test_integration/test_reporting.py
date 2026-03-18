@@ -1,7 +1,6 @@
 """Integration tests for reporting — LaTeX and Markdown generation."""
 from __future__ import annotations
 
-import pytest
 
 
 def test_generate_latex_methods(tmp_path):

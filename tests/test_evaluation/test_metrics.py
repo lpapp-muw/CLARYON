@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from claryon.evaluation.metrics import (
     binary_metrics,

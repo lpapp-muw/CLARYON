@@ -5,7 +5,6 @@ import os
 import random
 
 import numpy as np
-import pytest
 
 from claryon.determinism import enforce_determinism
 

@@ -13,7 +13,7 @@ def amplitude_data(synthetic_amplitude_data):
 
 class TestQuantumKernelSVM:
     def test_fit_predict(self, amplitude_data):
-        qml = pytest.importorskip("pennylane")
+        pytest.importorskip("pennylane")
         from claryon.models.quantum.kernel_svm import QuantumKernelSVM
 
         X_tr = amplitude_data["X_train"][:10]  # ≤20 samples
@@ -40,7 +40,7 @@ class TestQuantumKernelSVM:
 
 class TestQCNNMuw:
     def test_fit_predict(self, amplitude_data):
-        qml = pytest.importorskip("pennylane")
+        pytest.importorskip("pennylane")
         from claryon.models.quantum.qcnn_muw import QCNNMuwModel
         from claryon.io.base import TaskType
 
@@ -61,7 +61,7 @@ class TestQCNNMuw:
 
 class TestQCNNAlt:
     def test_fit_predict(self, amplitude_data):
-        qml = pytest.importorskip("pennylane")
+        pytest.importorskip("pennylane")
         from claryon.models.quantum.qcnn_alt import QCNNAltModel
         from claryon.io.base import TaskType
 

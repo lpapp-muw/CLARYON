@@ -55,7 +55,6 @@ def download_openml(dataset: Dict[str, Any], output_dir: Path) -> bool:
     """
     try:
         from sklearn.datasets import fetch_openml
-        import pandas as pd
 
         name = dataset["name"]
         ds = fetch_openml(data_id=dataset["openml_id"], as_frame=True, parser="auto")

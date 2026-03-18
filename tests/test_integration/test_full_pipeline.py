@@ -4,10 +4,8 @@ This is the Phase 7 capstone test: load → split → train → predict → eval
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
-import pytest
 import yaml
 
 from claryon.config_schema import load_config

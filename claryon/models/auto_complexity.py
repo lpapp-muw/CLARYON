@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from math import ceil, log2
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from ..config_schema import ClaryonConfig
 from .preset_resolver import resolve_preset

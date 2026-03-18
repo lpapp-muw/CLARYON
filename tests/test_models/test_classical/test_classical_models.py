@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from claryon.io.base import TaskType
-from claryon.registry import clear, get
+from claryon.registry import get
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +81,7 @@ class TestMLPModel:
 
 class TestXGBoostModel:
     def test_fit_predict_binary(self, binary_data):
-        xgb = pytest.importorskip("xgboost")
+        pytest.importorskip("xgboost")
         from claryon.models.classical.xgboost_ import XGBoostModel
         m = XGBoostModel(n_estimators=10, random_state=42)
         X_tr, y_tr, X_te, _ = binary_data
@@ -92,7 +92,7 @@ class TestXGBoostModel:
         assert probs.shape == (20, 2)
 
     def test_multiclass(self, multiclass_data):
-        xgb = pytest.importorskip("xgboost")
+        pytest.importorskip("xgboost")
         from claryon.models.classical.xgboost_ import XGBoostModel
         m = XGBoostModel(n_estimators=10, random_state=42)
         X_tr, y_tr, X_te, _ = multiclass_data
@@ -103,7 +103,7 @@ class TestXGBoostModel:
 
 class TestLightGBMModel:
     def test_fit_predict_binary(self, binary_data):
-        lgb = pytest.importorskip("lightgbm")
+        pytest.importorskip("lightgbm")
         from claryon.models.classical.lightgbm_ import LightGBMModel
         m = LightGBMModel(n_estimators=10, random_state=42)
         X_tr, y_tr, X_te, _ = binary_data
@@ -116,7 +116,7 @@ class TestLightGBMModel:
 
 class TestCatBoostModel:
     def test_fit_predict_binary(self, binary_data):
-        cb = pytest.importorskip("catboost")
+        pytest.importorskip("catboost")
         from claryon.models.classical.catboost_ import CatBoostModel
         m = CatBoostModel(iterations=10, random_seed=42, verbose=0)
         X_tr, y_tr, X_te, _ = binary_data

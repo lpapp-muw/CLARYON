@@ -5,10 +5,7 @@ Uses synthetic tabular binary fixture.
 """
 from __future__ import annotations
 
-from pathlib import Path
 
-import numpy as np
-import pytest
 import yaml
 
 from claryon.config_schema import load_config

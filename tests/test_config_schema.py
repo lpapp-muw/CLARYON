@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pytest
-import yaml
 
 from claryon.config_schema import ClaryonConfig, load_config
 

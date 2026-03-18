@@ -5,11 +5,9 @@ Ported from [E] shap_explain.py. Generalized beyond binary classification.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
-import pandas as pd
 
 from ..registry import register
 from .base import Explainer

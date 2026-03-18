@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from claryon.preprocessing.tabular_prep import (
     detect_categorical_columns,

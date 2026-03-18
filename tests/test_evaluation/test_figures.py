@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 
 def test_plot_roc_curve(tmp_path):

@@ -1,7 +1,6 @@
 """Tests for claryon.models.base — ModelBuilder ABC."""
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
 import pytest

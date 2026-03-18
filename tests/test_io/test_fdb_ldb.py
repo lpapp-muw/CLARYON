@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from claryon.io.base import TaskType
 from claryon.io.fdb_ldb import load_fdb_ldb, write_fdb_ldb
 
 

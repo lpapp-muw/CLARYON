@@ -649,7 +649,6 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -
     from .registry import get as registry_get
 
     # Import metric module to register metrics
-    from .evaluation import metrics as _metrics_module  # noqa: F811
 
     metric_names = config.evaluation.metrics
     if not metric_names:

@@ -8,7 +8,7 @@ from claryon.io.base import TaskType
 
 
 def test_cnn_3d_fit_predict(synthetic_3d_volumes):
-    torch = pytest.importorskip("torch")
+    pytest.importorskip("torch")
     from claryon.models.classical.cnn_3d import CNN3DModel
 
     X_tr = synthetic_3d_volumes["X_train"]

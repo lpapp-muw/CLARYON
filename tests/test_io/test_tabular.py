@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from claryon.io.base import TaskType
 from claryon.io.tabular import load_tabular_csv, _infer_task_type

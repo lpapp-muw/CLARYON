@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from ..config_schema import ClaryonConfig, ModelEntry
+from ..config_schema import ClaryonConfig
 
 logger = logging.getLogger(__name__)
 

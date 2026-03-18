@@ -1,7 +1,6 @@
 """Tests for claryon.explainability.lime_ — LIME explainer."""
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 

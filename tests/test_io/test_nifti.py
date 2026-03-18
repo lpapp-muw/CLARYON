@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from claryon.io.base import TaskType
 from claryon.io.nifti import (
     _case_id,
     _parse_label,

@@ -8,7 +8,7 @@ from claryon.io.base import TaskType
 
 
 def test_cnn_2d_fit_predict(synthetic_2d_images):
-    torch = pytest.importorskip("torch")
+    pytest.importorskip("torch")
     from claryon.models.classical.cnn_2d import CNN2DModel
 
     X_tr = synthetic_2d_images["X_train"]
