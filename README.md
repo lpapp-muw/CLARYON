@@ -313,6 +313,67 @@ Kaggle datasets require a Kaggle API token (`~/.kaggle/kaggle.json`). Use `--ski
 
 ---
 
+
+## PSMA-11 PET Radiomics Dataset
+
+CLARYON includes a real, anonymized dataset containing **[68Ga]Ga-PSMA-11 PET radiomic features** extracted from primary prostate lesions, with a binary label for **Gleason risk prediction** (low vs high).
+
+**Source**: [https://osf.io/3nkx8/files/osfstorage](https://osf.io/3nkx8/files/osfstorage)
+
+| File | Description |
+|---|---|
+| `demo_data/psma11/raw/FDB.csv` | Original feature database (306 radiomic + clinical features, semicolon-separated) |
+| `demo_data/psma11/raw/LDB.csv` | Original label database (binary Gleason risk) |
+| `demo_data/psma11/real_train.csv` | Preprocessed training set (f0..f305 + label, 133 samples) |
+| `demo_data/psma11/real_infer.csv` | Inference set (133 samples, features only) |
+| `demo_data/psma11/real_feature_map.csv` | Maps f0..f305 to original radiomic feature names |
+
+Example config for running classical + quantum models on PSMA-11 radiomics:
+
+```yaml
+experiment:
+  name: psma_prostate
+  seed: 42
+  complexity: medium
+  results_dir: Results/psma
+
+data:
+  tabular:
+    path: demo_data/psma11/real_train.csv
+    label_col: label
+    sep: ";"
+
+preprocessing:
+  feature_selection: true
+  spearman_threshold: 0.8
+
+cv:
+  strategy: kfold
+  n_folds: 5
+  seeds: [42, 123]
+
+models:
+  - name: xgboost
+    type: tabular
+  - name: lightgbm
+    type: tabular
+  - name: kernel_svm
+    type: tabular_quantum
+  - name: qcnn_muw
+    type: tabular_quantum
+
+evaluation:
+  metrics: [bacc, auc, sensitivity, specificity]
+
+reporting:
+  latex: true
+  markdown: true
+```
+
+The dataset has 306 features (ADC and PSMA radiomic features + clinical parameters from [68Ga]Ga-PSMA-11 PET/MR imaging). After mRMR feature selection (default threshold 0.8), the feature set is reduced substantially, bringing qubit requirements to a manageable level for simulator-based quantum computation.
+
+---
+
 ## NIfTI / Medical Imaging
 
 Image and mask file patterns are user-configurable:
