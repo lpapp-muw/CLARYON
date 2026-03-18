@@ -772,9 +772,6 @@ class TestEndToEnd:
 # 13. GIT HISTORY INTEGRITY
 # ═══════════════════════════════════════════════════════════════
 
-class TestGitHistory:
-    """Verify the git history is clean and properly tagged."""
-
     def test_all_phase_tags_exist(self) -> None:
         result = subprocess.run(
             ["git", "tag", "-l"],
