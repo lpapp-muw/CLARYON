@@ -517,7 +517,7 @@ class TestRadiomicsIntegration:
     def test_radiomics_extraction_smoke(self) -> None:
         """Run actual extraction on synthetic NIfTI if pyradiomics is installed."""
         try:
-            import radiomics
+            import radiomics  # noqa: F401
         except ImportError:
             pytest.skip("pyradiomics not installed")
 
@@ -601,7 +601,7 @@ class TestCNNModels:
     def test_cnn_2d_smoke(self) -> None:
         sys.path.insert(0, str(PROJECT_ROOT))
         try:
-            import torch
+            import torch  # noqa: F401
         except ImportError:
             pytest.skip("PyTorch not installed")
 
@@ -632,7 +632,7 @@ class TestCNNModels:
     def test_cnn_3d_smoke(self) -> None:
         sys.path.insert(0, str(PROJECT_ROOT))
         try:
-            import torch
+            import torch  # noqa: F401
         except ImportError:
             pytest.skip("PyTorch not installed")
 
@@ -670,7 +670,7 @@ class TestRegistry:
     def test_registry_importable(self) -> None:
         sys.path.insert(0, str(PROJECT_ROOT))
         try:
-            from claryon.registry import get, list_registered
+            from claryon.registry import get, list_registered  # noqa: F401
         except ImportError:
             pytest.fail("Cannot import registry")
 

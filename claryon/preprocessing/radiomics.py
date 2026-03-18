@@ -33,7 +33,7 @@ def extract_radiomics_features(
         Dict mapping feature names to values.
     """
     try:
-        import radiomics
+        import radiomics  # noqa: F401
         from radiomics import featureextractor
     except ImportError as exc:
         raise ImportError(

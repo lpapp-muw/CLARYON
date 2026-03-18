@@ -7,36 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,boosting,quantum,imaging,explain,report,torch]"
-
-      - name: Run tests
-        run: |
-          python -m pytest tests/ -x -q --timeout=300 \
-            --ignore=tests/test_integration
-        timeout-minutes: 15
-
-      - name: Run integration tests
-        run: |
-          python -m pytest tests/test_integration/ -x -q --timeout=600
-        timeout-minutes: 30
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -52,3 +22,36 @@ jobs:
 
       - name: Lint
         run: ruff check claryon/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,boosting,quantum,imaging,explain,report]"
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -x -q --timeout=300 \
+            --ignore=tests/test_integration
+        timeout-minutes: 15
+
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/test_integration/ -x -q --timeout=600
+        timeout-minutes: 30
