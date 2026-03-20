@@ -12,7 +12,7 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 
 ## Features
 
-**Models** — 21 registered, from gradient boosting to quantum circuits:
+**Models** — 20 registered, from gradient boosting to quantum circuits:
 
 | Category | Models | Backend |
 |---|---|---|
@@ -21,7 +21,6 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 | Quantum ML | Quantum kernel SVM, Simplified quantum kernel SVM, QCNN-MUW, QCNN-ALT, QNN | PennyLane |
 | Quantum distance | Hadamard distance classifier, SWAP distance classifier | PennyLane |
 | Quantum GP | Quantum Gaussian Process | PennyLane |
-| Quantum-classical | Hybrid model | PennyLane + PyTorch |
 | Ensemble | Softmax averaging (classification), mean (regression) | numpy |
 | Evaluation | Geometric Difference score (GDQ) | numpy / scipy |
 
@@ -128,7 +127,7 @@ experiment:
 
 data:
   tabular:
-    path: data/my_data.csv
+    path: datasets/wisconsin-breast-cancer/train.csv
     label_col: label
     id_col: Key
     sep: ";"
@@ -286,91 +285,21 @@ preprocessing:
 
 ---
 
-## Benchmark Datasets
+## Included Datasets
 
-CLARYON includes a downloader for 12 curated medical datasets:
+CLARYON ships with pre-processed, ready-to-use datasets in `datasets/`. All tabular files use semicolon separator, `f0..fN` feature columns, and integer-encoded `label` column. No additional download or preprocessing required.
 
-```bash
-python -m claryon.benchmark.download_benchmark_datasets --output-dir benchmarking/datasets
-```
+| Dataset | Path | Samples | Features | Domain | Source |
+|---|---|---|---|---|---|
+| Iris | `datasets/iris/iris.csv` | 150 | 4 | Demo / smoke test | UCI / scikit-learn |
+| Iris (binary) | `datasets/iris/iris_binary.csv` | 150 | 4 | Demo / smoke test | UCI / scikit-learn |
+| Wisconsin Breast Cancer | `datasets/wisconsin-breast-cancer/train.csv` | 569 | 30 | Oncology | UCI (CC BY 4.0) |
+| Cervical Cancer | `datasets/cervical-cancer/train.csv` | 858 | 26 | Oncology | UCI (CC BY 4.0) |
+| HCC Survival | `datasets/hcc-survival/train.csv` | 165 | 49 | Oncology (HCC) | Kaggle (CC BY-NC-SA 4.0) |
+| PSMA-11 PET Radiomics | `datasets/psma11/train.csv` | 133 | 306 | Nuclear medicine | OSF (open access) |
+| NIfTI Demo (synthetic) | `datasets/nifti_demo/` | 32 | volumetric | Pipeline validation | Generated |
 
-| Dataset | Source | Samples | Features | Domain |
-|---|---|---|---|---|
-| wisconsin-breast-cancer | UCI | 699 | 9 | Oncology |
-| heart-failure | UCI | 299 | 12 | Cardiology |
-| cervical-cancer | UCI | 858 | 36 | Oncology |
-| chronic-kidney-disease | UCI | 400 | 24 | Nephrology |
-| spect-heart | UCI | 267 | 22 | Nuclear medicine (SPECT) |
-| mammographic-mass | UCI | 961 | 5 | Radiology |
-| blood-transfusion | OpenML | 748 | 4 | Hematology |
-| diabetes | OpenML | 768 | 8 | Endocrinology |
-| iris | OpenML | 150 | 4 | Demo/smoke test |
-| hcc-survival | Kaggle | 165 | 49 | Oncology (HCC) |
-| stroke-prediction | Kaggle | 5110 | 11 | Neurology |
-| fetal-health | Kaggle | 2126 | 21 | Obstetrics |
-
-Kaggle datasets require a Kaggle API token (`~/.kaggle/kaggle.json`). Use `--skip-kaggle` to skip them.
-
----
-
-
-## PSMA-11 PET Radiomics Dataset
-
-CLARYON includes a real, anonymized dataset containing **[68Ga]Ga-PSMA-11 PET radiomic features** extracted from primary prostate lesions, with a binary label for **Gleason risk prediction** (low vs high).
-
-**Source**: [https://osf.io/3nkx8/files/osfstorage](https://osf.io/3nkx8/files/osfstorage)
-
-| File | Description |
-|---|---|
-| `demo_data/psma11/raw/FDB.csv` | Original feature database (306 radiomic + clinical features, semicolon-separated) |
-| `demo_data/psma11/raw/LDB.csv` | Original label database (binary Gleason risk) |
-| `demo_data/psma11/real_train.csv` | Preprocessed training set (f0..f305 + label, 133 samples) |
-| `demo_data/psma11/real_infer.csv` | Inference set (133 samples, features only) |
-| `demo_data/psma11/real_feature_map.csv` | Maps f0..f305 to original radiomic feature names |
-
-Example config for running classical + quantum models on PSMA-11 radiomics:
-
-```yaml
-experiment:
-  name: psma_prostate
-  seed: 42
-  complexity: medium
-  results_dir: Results/psma
-
-data:
-  tabular:
-    path: demo_data/psma11/real_train.csv
-    label_col: label
-    sep: ";"
-
-preprocessing:
-  feature_selection: true
-  spearman_threshold: 0.8
-
-cv:
-  strategy: kfold
-  n_folds: 5
-  seeds: [42, 123]
-
-models:
-  - name: xgboost
-    type: tabular
-  - name: lightgbm
-    type: tabular
-  - name: kernel_svm
-    type: tabular_quantum
-  - name: qcnn_muw
-    type: tabular_quantum
-
-evaluation:
-  metrics: [bacc, auc, sensitivity, specificity]
-
-reporting:
-  latex: true
-  markdown: true
-```
-
-The dataset has 306 features (ADC and PSMA radiomic features + clinical parameters from [68Ga]Ga-PSMA-11 PET/MR imaging). After mRMR feature selection (default threshold 0.8), the feature set is reduced substantially, bringing qubit requirements to a manageable level for simulator-based quantum computation.
+See `datasets/DATA_SOURCES.md` for full attribution, licenses, and references for each dataset.
 
 ---
 
@@ -427,7 +356,20 @@ Practical qubit limit: <=20 recommended, <=30 possible. Resource warnings are lo
 
 ### Geometric Difference Score
 
-The GDQ score quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels (Huang et al., 2021). GDQ > 1.0 suggests potential quantum advantage; GDQ <= 1.0 means classical models are likely sufficient.
+The GDQ score (Huang et al., 2021) quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels. GDQ > 1.0 suggests potential quantum advantage; GDQ <= 1.0 means classical models are likely sufficient.
+
+GDQ is available as a library function and demonstrated in notebook `03_quantum_models.ipynb`. Example usage:
+
+```python
+from claryon.evaluation.geometric_difference import quantum_advantage_analysis
+
+# K_Q is the quantum kernel matrix from a trained quantum kernel SVM
+analysis = quantum_advantage_analysis(K_Q, y_train, X_train)
+print(analysis["recommendation"])   # classical_sufficient / quantum_advantage_likely / inconclusive
+print(analysis["g_CQ"])             # geometric difference per classical kernel
+```
+
+The analysis compares the quantum kernel against linear, RBF, and polynomial classical kernels and produces a 3-panel visualization report (geometric difference bars, model complexity comparison, recommendation).
 
 ---
 
@@ -448,6 +390,8 @@ The inference command loads the saved model and preprocessing state (z-score coe
 
 ## Runtime Expectations
 
+### Per-fold runtimes
+
 Approximate runtimes for `complexity: medium` on a single CPU core:
 
 | Model | 150 samples, 4 features | 500 samples, 30 features | 1000 samples, 100 features |
@@ -462,6 +406,22 @@ Approximate runtimes for `complexity: medium` on a single CPU core:
 | cnn_3d | 2 minutes | 10 minutes | 30 minutes (GPU recommended) |
 
 Times are per fold. Multiply by n_folds x n_seeds for total. GPU accelerates CNNs only; quantum models run on CPU (PennyLane simulator).
+
+### Total experiment estimates
+
+These estimates assume 5-fold CV with 3 seeds (15 folds total) on a single CPU core:
+
+| Complexity | Classical only (4 models) | Classical + Quantum (12 models) |
+|---|---|---|
+| `quick` | 5-15 minutes | 1-3 hours |
+| `small` | 10-30 minutes | 3-8 hours |
+| `medium` | 15-45 minutes | 6-20 hours |
+| `large` | 30-90 minutes | 2-7 days |
+| `exhaustive` | 1-3 hours | 1-3 weeks |
+
+Quantum model runtime scales steeply with sample count and qubit count. For datasets with many features, mRMR feature selection reduces qubit requirements substantially. Datasets with >500 samples and >30 features (post-mRMR) may require days at `large` complexity.
+
+**Recommendation**: Use `complexity: medium` for initial experiments and publication-grade results on small-to-medium datasets. Reserve `large` and `exhaustive` for final benchmarks on small datasets (<200 samples) or when running on a compute cluster.
 
 ---
 
@@ -522,7 +482,7 @@ models:
     enabled: true              # set false to skip
 ```
 
-Available: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `hybrid`, `tabm`, `realmlp`, `modernnca`.
+Available: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
 
 ### Explainability
 
@@ -577,8 +537,7 @@ claryon/
 │   └── ensemble.py           # Softmax averaging
 ├── explainability/           # SHAP, LIME, GradCAM, plots
 ├── evaluation/               # Metrics, Friedman/Nemenyi, GDQ, figures
-├── reporting/                # Structured LaTeX, Markdown, method descriptions, BibTeX
-└── benchmark/                # Dataset downloader (12 medical datasets)
+└── reporting/                # Structured LaTeX, Markdown, method descriptions, BibTeX
 ```
 
 ---
@@ -643,16 +602,30 @@ CI runs on Python 3.10-3.12 via GitHub Actions.
 
 ## References
 
+- Papp L, Visvikis D, Sollini M, Shi K, Kirienko M. "The Dawn of Quantum AI in Nuclear Medicine: an EANM Perspective." *The EANM Journal*, 2026 (in revision). CLARYON is the official code repository for this manuscript (via [EANM-AI-QC](https://github.com/lpapp-muw/EANM-AI-QC)).
 - Moradi S, Brandner C, Spielvogel C, Krajnc D, Hillmich S, Wille R, Drexler W, Papp L. "Clinical data classification with noisy intermediate scale quantum computers." *Scientific Reports* 12, 1851 (2022). https://doi.org/10.1038/s41598-022-05971-9
 - Moradi S, Spielvogel C, Krajnc D, Brandner C, Hillmich S, Wille R, Traub-Weidinger T, Li X, Hacker M, Drexler W, Papp L. "Error mitigation enables PET radiomic cancer characterization on quantum computers." *Eur J Nucl Med Mol Imaging* 50, 3826-3837 (2023). https://doi.org/10.1007/s00259-023-06362-6
 - Papp L, et al. "Quantum Convolutional Neural Networks for Predicting ISUP Grade risk in [68Ga]Ga-PSMA Primary Prostate Cancer Patients." Under revision.
 - Huang H-Y, Broughton M, Mohseni M, Babbush R, Boixo S, Neven H, McClean JR. "Power of data in quantum machine learning." *Nature Communications* 12, 2631 (2021). https://doi.org/10.1038/s41467-021-22539-9
+- Papp L, Spielvogel CP, Grubmuller B, et al. "Supervised machine learning enables non-invasive lesion characterization in primary prostate cancer with [68Ga]Ga-PSMA-11 PET/MRI." *Eur J Nucl Med Mol Imaging* 48, 1795-1805 (2021). https://doi.org/10.1007/s00259-020-05140-y
 
 ---
 
 ## Citation
 
+If you use CLARYON in your research, please cite both the software and the associated manuscript:
+
 ```bibtex
+@article{papp2026dawn,
+  author       = {Papp, Laszlo and Visvikis, Dimitris and Sollini, Martina
+                  and Shi, Kuangyu and Kirienko, Margarita},
+  title        = {The Dawn of Quantum {AI} in Nuclear Medicine: an {EANM}
+                  Perspective},
+  journal      = {The EANM Journal},
+  year         = {2026},
+  note         = {In revision}
+}
+
 @software{claryon2026,
   author       = {Papp, Laszlo},
   title        = {{CLARYON}: Classical-quantum {AI} for Reproducible
