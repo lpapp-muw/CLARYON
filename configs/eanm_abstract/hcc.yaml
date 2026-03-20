@@ -1,62 +1,59 @@
 experiment:
-  name: iris_full_pipeline
+  name: eanm_hcc
   seed: 42
-  results_dir: Results/iris_full
+  results_dir: Results/eanm_abstract/hcc
+  complexity: medium
 
 data:
   tabular:
-    path: datasets/iris/iris_binary.csv
+    path: datasets/hcc-survival/train.csv
     label_col: label
-    id_col: Key
     sep: ";"
+
+preprocessing:
+  zscore: true
+  feature_selection: true
+  spearman_threshold: 0.8
 
 cv:
   strategy: kfold
   n_folds: 5
-  seeds: [42, 123]
+  seeds: [42, 123, 456]
 
 models:
   - name: xgboost
     type: tabular
-    params:
-      n_estimators: 200
   - name: lightgbm
     type: tabular
   - name: catboost
     type: tabular
-    params:
-      iterations: 200
-      verbose: 0
   - name: mlp
     type: tabular
-    params:
-      hidden_layer_sizes: [64, 32]
-      max_iter: 500
   - name: kernel_svm
+    type: tabular_quantum
+  - name: sq_kernel_svm
+    type: tabular_quantum
+  - name: qdc_hadamard
+    type: tabular_quantum
+  - name: qdc_swap
+    type: tabular_quantum
+  - name: quantum_gp
+    type: tabular_quantum
+  - name: qnn
     type: tabular_quantum
   - name: qcnn_muw
     type: tabular_quantum
-    params:
-      epochs: 15
-      lr: 0.02
   - name: qcnn_alt
     type: tabular_quantum
-    params:
-      epochs: 15
-      lr: 0.02
-
-explainability:
-  shap: true
-  lime: true
-  max_features: 4
-  max_test_samples: 10
+  - name: ensemble
+    type: tabular
 
 evaluation:
   metrics: [bacc, auc, sensitivity, specificity]
   statistical_tests: [friedman]
+  confidence_level: 0.95
 
 reporting:
-  latex: true
   markdown: true
+  latex: true
   figures: true
-  figure_dpi: 300

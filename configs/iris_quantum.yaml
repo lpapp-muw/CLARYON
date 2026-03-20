@@ -5,7 +5,7 @@ experiment:
 
 data:
   tabular:
-    path: /home/laszlo/claryon/demo_data/iris/iris_binary.csv
+    path: datasets/iris/iris_binary.csv
     label_col: label
     id_col: Key
     sep: ";"

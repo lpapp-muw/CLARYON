@@ -2,34 +2,37 @@ experiment:
   name: iris_classical
   seed: 42
   results_dir: Results/iris_classical
+  complexity: quick
 
 data:
   tabular:
-    path: /home/laszlo/claryon/demo_data/iris/iris.csv
+    path: datasets/iris/iris.csv
     label_col: label
-    id_col: Key
     sep: ";"
+
+preprocessing:
+  zscore: true
+  feature_selection: true
+  spearman_threshold: 0.8
 
 cv:
   strategy: kfold
-  n_folds: 5
+  n_folds: 3
   seeds: [42]
 
 models:
   - name: xgboost
     type: tabular
-    params:
-      n_estimators: 100
   - name: lightgbm
     type: tabular
   - name: catboost
     type: tabular
-    params:
-      iterations: 100
-      verbose: 0
+  - name: mlp
+    type: tabular
 
 evaluation:
   metrics: [bacc, auc, sensitivity, specificity]
 
 reporting:
   markdown: true
+  latex: false
