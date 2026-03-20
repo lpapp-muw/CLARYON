@@ -218,13 +218,15 @@ experiment:
 | `exhaustive` | 500 | 0.002 | 2000 | Maximum effort |
 | `auto` | dataset-dependent | dataset-dependent | dataset-dependent | CLARYON analyzes your data and time budget, picks the best preset per model |
 
-Auto mode uses `max_runtime_minutes` (default: 120) to select the highest quality preset that fits your time budget:
+Auto mode attempts to select the highest quality preset that fits your time budget. It estimates per-fold runtime based on sample count, qubit count, and model type, then picks the best preset per model:
 
 ```yaml
 experiment:
   complexity: auto
   max_runtime_minutes: 60
 ```
+
+**Note**: Runtime estimates for quantum models are approximate and may underestimate actual wall time by a significant factor, particularly for larger datasets or higher qubit counts. Auto mode does not enforce a hard timeout — once a preset is selected, the model runs to completion. For predictable runtimes, use an explicit preset (`quick`, `small`, `medium`, `large`, `exhaustive`) instead of `auto`.
 
 Per-model override (expert users):
 
