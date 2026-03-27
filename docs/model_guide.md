@@ -103,18 +103,6 @@ An alternative quantum convolutional neural network with a different circuit top
 
 Try this as a second quantum model alongside `qcnn_muw` to see if the alternative architecture captures patterns that the primary one misses. Performance differences between the two architectures are dataset-dependent, so comparing both is recommended.
 
-### vqc (Variational Quantum Classifier)
-
-A general-purpose quantum classifier that uses a parameterized quantum circuit trained via gradient descent. The circuit consists of repeated layers of rotation gates and entangling gates, with parameters optimized to minimize classification loss.
-
-The VQC is the most flexible quantum model in CLARYON but can be harder to train. It works well when the number of features is small (under 10) and the decision boundary is highly nonlinear. For larger feature counts, prefer `qcnn_muw` which has built-in feature reduction through its convolutional structure.
-
-### hybrid (Hybrid Classical-Quantum Model)
-
-Combines a classical neural network front-end with a quantum circuit back-end. The classical layers first reduce the input features to a small number of dimensions, which are then processed by a variational quantum circuit for final classification.
-
-This is the best choice when you have many features but still want to use quantum processing. The classical front-end handles dimensionality reduction, so the quantum circuit only needs a few qubits. It bridges the gap between classical deep learning and quantum computing.
-
 ### qdc_hadamard (Quantum Distance Classifier --- Hadamard Test)
 
 Classifies patients by measuring the quantum distance between a new patient and the average quantum state of each class. It uses the Hadamard test, a quantum subroutine that measures the overlap between two quantum states using one additional auxiliary qubit.
@@ -218,16 +206,12 @@ Best suited for small datasets (under 200 samples) with complex decision boundar
 | `init_scale`    | 0.1      | Scale of random initial circuit parameters.           |
 | `batch_size`    | 16       | Samples per training batch.                           |
 
-#### vqc
-
 | Parameter       | Default  | What It Controls                                      |
 |-----------------|----------|-------------------------------------------------------|
 | `num_layers`    | 4        | Number of variational circuit layers. More = more expressive. |
 | `epochs`        | 100      | Number of training iterations.                        |
 | `lr`            | 0.01     | Learning rate.                                        |
 | `batch_size`    | 16       | Samples per training batch.                           |
-
-#### hybrid
 
 | Parameter         | Default  | What It Controls                                    |
 |-------------------|----------|-----------------------------------------------------|
@@ -285,8 +269,6 @@ Estimated per-fold runtimes on a modern CPU workstation (no GPU, exact quantum s
 | sq_kernel_svm  | 5s          | 2 min       | 8 min        |
 | qcnn_muw       | 15s         | 1 min       | 2 min        |
 | qcnn_alt       | 15s         | 1 min       | 2 min        |
-| vqc            | 10s         | 45s         | 1.5 min      |
-| hybrid         | 10s         | 45s         | 1.5 min      |
 | qdc_hadamard   | 3s          | 1 min       | 5 min        |
 | qdc_swap       | 10s         | 5 min       | 20 min       |
 | quantum_gp     | 5s          | 2 min       | 8 min        |
@@ -300,8 +282,6 @@ Estimated per-fold runtimes on a modern CPU workstation (no GPU, exact quantum s
 | sq_kernel_svm  | 10s         | 4 min       | 16 min       |
 | qcnn_muw       | 30s         | 2 min       | 5 min        |
 | qcnn_alt       | 30s         | 2 min       | 5 min        |
-| vqc            | 20s         | 1.5 min     | 3 min        |
-| hybrid         | 20s         | 1.5 min     | 3 min        |
 | qdc_hadamard   | 8s          | 3 min       | 12 min       |
 | qdc_swap       | 1 min       | 30 min      | 2 hours      |
 | quantum_gp     | 10s         | 4 min       | 16 min       |
@@ -344,7 +324,7 @@ Quantum simulation cost grows exponentially with qubit count. Each qubit doubles
 
 ### Kernel models scale quadratically with samples
 
-Models that compute a kernel matrix (`kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`) must compare every pair of samples. Doubling your sample count quadruples the runtime. For datasets with more than 500 samples, prefer training-based models like `qcnn_muw` or `vqc`.
+Models that compute a kernel matrix (`kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`) must compare every pair of samples. Doubling your sample count quadruples the runtime. For datasets with more than 500 samples, prefer training-based models like `qcnn_muw`.
 
 ### Watch memory with SWAP test
 

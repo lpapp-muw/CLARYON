@@ -9,7 +9,7 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **Samples**: 150 (multiclass) / 150 (binary: setosa vs rest)
 - **Features**: 4
 - **Reference**: Fisher, R. A. "The use of multiple measurements in taxonomic problems." *Annals of Eugenics* 7.2 (1936): 179-188.
-- **Files**: `iris/iris.csv` (3-class), `iris/iris_binary.csv` (binary)
+- **Files**: `datasets/iris/iris.csv` (3-class), `datasets/iris/iris_binary.csv` (binary)
 
 ## Wisconsin Breast Cancer
 
@@ -20,7 +20,7 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **Target**: Diagnosis (M=malignant→1, B=benign→0)
 - **Reference**: Wolberg, W. H., Street, W. N., & Mangasarian, O. L. "Machine learning techniques to diagnose breast cancer from image-processed nuclear features of fine needle aspirates." *Cancer Letters* 77.2-3 (1994): 163-171.
 - **URL**: https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic
-- **File**: `wisconsin-breast-cancer/train.csv`
+- **File**: `datasets/wisconsin-breast-cancer/train.csv`
 
 ## Cervical Cancer (Risk Factors)
 
@@ -31,7 +31,7 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **Target**: Biopsy result (1=positive, 0=negative). Other diagnostic columns (Hinselmann, Schiller, Citology, Dx:*) removed to avoid target leakage.
 - **Reference**: Fernandes, K., Cardoso, J. S., & Fernandes, J. "Transfer learning with partial observability applied to cervical cancer screening." *Iberian Conference on Pattern Recognition and Image Analysis.* Springer, 2017.
 - **URL**: https://archive.ics.uci.edu/dataset/383/cervical+cancer+risk+factors
-- **File**: `cervical-cancer/train.csv`
+- **File**: `datasets/cervical-cancer/train.csv`
 - **Note**: Heavily imbalanced (55 positive / 803 negative).
 
 ## HCC Survival
@@ -43,7 +43,7 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **Target**: Survival (1=lives, 0=dies)
 - **Reference**: Santos, M. S., Abreu, P. H., Garcia-Laencina, P. J., Simao, A., & Carvalho, A. "A new cluster-based oversampling method for improving survival prediction of hepatocellular carcinoma patients." *Journal of Biomedical Informatics* 58 (2015): 49-59.
 - **URL**: https://www.kaggle.com/datasets/mrsantos/hcc-dataset
-- **File**: `hcc-survival/train.csv`
+- **File**: `datasets/hcc-survival/train.csv`
 
 ## PSMA-11 PET Radiomics (Prostate Cancer)
 
@@ -54,7 +54,7 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **Target**: Binary Gleason risk (low vs high)
 - **Reference**: Papp, L., Spielvogel, C. P., Grubmuller, B., et al. "Supervised machine learning enables non-invasive lesion characterization in primary prostate cancer with [68Ga]Ga-PSMA-11 PET/MRI." *Eur J Nucl Med Mol Imaging* 48 (2021): 1795-1805. https://doi.org/10.1007/s00259-020-05140-y
 - **URL**: https://osf.io/3nkx8/files/osfstorage
-- **Files**: `psma11/train.csv`, `psma11/infer.csv`, `psma11/feature_map.csv`, `psma11/raw/FDB.csv`, `psma11/raw/LDB.csv`
+- **Files**: `datasets/psma11/train.csv`, `datasets/psma11/infer.csv`, `datasets/psma11/feature_map.csv`, `datasets/psma11/raw/FDB.csv`, `datasets/psma11/raw/LDB.csv`
 
 ## NIfTI Demo (Synthetic)
 
@@ -62,4 +62,4 @@ All tabular datasets are distributed in CLARYON-ready format: semicolon-separate
 - **License**: GPL-3.0-or-later (same as CLARYON)
 - **Samples**: 20 train + 12 test (synthetic random volumes)
 - **Purpose**: Pipeline validation only. Not representative of clinical data.
-- **Files**: `nifti_demo/Train/*.nii.gz`, `nifti_demo/Test/*.nii.gz`
+- **Files**: `datasets/nifti_demo/Train/*.nii.gz`, `datasets/nifti_demo/Test/*.nii.gz`

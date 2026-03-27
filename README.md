@@ -350,7 +350,6 @@ Quantum models use PennyLane's `default.qubit` simulator. Data is automatically 
 | `qnn` | Per-class Mottonen + Rot/CNOT layers, margin loss (PyTorch) | Moradi et al., 2023 |
 | `qcnn_muw` | Amplitude embedding, conv/pool layers, ArbitraryUnitary, Projector | Papp et al., under revision |
 | `qcnn_alt` | Alternative conv/pool architecture, Projector | MedUni Wien design |
-| `hybrid` | Quantum-classical hybrid (stub) | -- |
 
 Practical qubit limit: <=20 recommended, <=30 possible. Resource warnings are logged automatically. CLARYON estimates memory and runtime before training and skips models that would exceed available resources.
 

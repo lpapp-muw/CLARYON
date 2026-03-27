@@ -12,7 +12,7 @@ license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "L. Papp", email = "laszlo.papp@meduniwien.ac.at"},
 ]
-keywords = ["quantum", "machine-learning", "medical-imaging", "explainability", "benchmark"]
+keywords = ["quantum", "machine-learning", "medical-imaging", "explainability", "nuclear-medicine"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
