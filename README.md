@@ -16,7 +16,6 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 - [Supported Data Types](#supported-data-types)
   - [Tabular Data](#tabular-data)
   - [NIfTI Medical Imaging](#nifti-medical-imaging)
-  - [Data Fusion](#data-fusion)
 - [Models](#models)
   - [Model–Data Compatibility](#modeldata-compatibility)
   - [Classical Models](#classical-models)
@@ -138,22 +137,6 @@ data:
 **Hard requirement**: All NIfTI volumes within a cohort must have the same dimensions (e.g., all 32×32×32). If volumes differ in size, CLARYON zero-pads smaller volumes to match the largest, and logs a warning. Consistent dimensions ensure spatial correspondence across patients.
 
 **Qubit count**: For quantum models, amplitude encoding requires log2(n_voxels) qubits (rounded up to next power of 2). CLARYON logs the qubit count when loading NIfTI data. Example: 32×32×32 = 32768 voxels → 15 qubits.
-
-### Data Fusion
-
-Combine tabular features with imaging data. Both sources are loaded and concatenated (early fusion):
-
-```yaml
-data:
-  tabular:
-    path: data/radiomics.csv
-    label_col: label
-    sep: ";"
-  imaging:
-    path: data/pet_volumes
-    format: nifti
-    mask_pattern: "*mask*"
-```
 
 ### Radiomics Extraction
 
