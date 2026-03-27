@@ -52,7 +52,7 @@ def estimate_runtime(
         batches = max(n_samples // batch_size, 1)
         return epochs * batches * 0.5  # ~0.5s per batch on GPU
     else:
-        # Training-based quantum models (qcnn_muw, qcnn_alt, vqc, hybrid, qnn)
+        # Training-based quantum models (qcnn_muw, qcnn_alt, qnn)
         epochs = params.get("epochs", 100)
         batch_size = params.get("batch_size", 16)
         batches = max(n_samples // batch_size, 1)

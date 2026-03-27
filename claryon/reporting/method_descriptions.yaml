@@ -382,24 +382,6 @@ models:
       at learning rate {{lr}}.
       {{param_text}}
 
-  vqc:
-    short: "Variational quantum classifier (deprecated, use qnn)"
-    text: >
-      A variational quantum classifier (VQC) stub. This model has been
-      superseded by the \texttt{qnn} model, which implements the full
-      per-class variational circuit architecture from Moradi et al.\ (2023).
-      {{param_text}}
-    cite: "Schuld2020"
-
-  hybrid:
-    short: "Hybrid quantum-classical"
-    text: >
-      A hybrid quantum-classical model was used, combining a
-      parameterized quantum circuit with a classical neural network
-      head. The quantum sub-circuit produces a feature embedding
-      that is processed by dense layers for final classification.
-      {{param_text}}
-
   ensemble:
     short: "Ensemble (softmax averaging)"
     text: >
