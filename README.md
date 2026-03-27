@@ -4,84 +4,72 @@
 
 **CLassical-quantum AI for Reproducible Explainable OpeN-source medicine**
 
-CLARYON is a YAML-driven machine learning framework that unifies classical, quantum, and deep learning models under a single reproducible pipeline. It supports tabular data, NIfTI medical images (PET/CT/MR), TIFF, and radiomics feature extraction — with built-in preprocessing (z-score normalization, mRMR feature selection), explainability (SHAP, LIME), statistical comparison (Friedman/Nemenyi, Geometric Difference score), and publication-ready LaTeX reporting.
+CLARYON is a YAML-driven machine learning framework that unifies classical, quantum, and deep learning models under a single reproducible pipeline. It supports tabular data and NIfTI medical images — with built-in preprocessing, explainability, statistical comparison, and publication-ready LaTeX reporting.
 
 **Author**: Laszlo Papp, PhD — EANM AI Committee member, Applied Quantum Computing Group, Center for Medical Physics and Biomedical Engineering, Medical University of Vienna — laszlo.papp@meduniwien.ac.at
 
 ---
 
-## Features
+## Table of Contents
 
-**Models** — 20 registered, from gradient boosting to quantum circuits:
-
-| Category | Models | Backend |
-|---|---|---|
-| Gradient boosting | XGBoost, LightGBM, CatBoost | scikit-learn API |
-| Neural networks | MLP, 2D CNN, 3D CNN | scikit-learn / PyTorch |
-| Quantum ML | Quantum kernel SVM, Simplified quantum kernel SVM, QCNN-MUW, QCNN-ALT, QNN | PennyLane |
-| Quantum distance | Hadamard distance classifier, SWAP distance classifier | PennyLane |
-| Quantum GP | Quantum Gaussian Process | PennyLane |
-| Ensemble | Softmax averaging (classification), mean (regression) | numpy |
-| Evaluation | Geometric Difference score (GDQ) | numpy / scipy |
-
-**Data modalities**: Tabular CSV/Parquet, NIfTI (.nii/.nii.gz) with user-defined image and mask patterns, TIFF with metadata.
-
-**Preprocessing**: Z-score normalization (fitted on training fold, applied to test fold — automatically skipped for quantum models), mRMR feature selection (Spearman-based redundancy clustering), optional radiomics extraction (pyradiomics), image normalization (per-image or cohort-global min-max). All preprocessing state is saved per fold for reproducible inference.
-
-**Binary grouping**: User-defined relabeling of multi-class datasets into binary classification for clinically meaningful endpoints (e.g., ISUP grade grouping in prostate cancer).
-
-**Explainability**: SHAP (permutation-based, works on all models including quantum), LIME. Generates PNG plots (beeswarm, bar, per-sample waterfall/explanation).
-
-**Evaluation**: 12 registered metrics (BACC, AUC, sensitivity, specificity, PPV, NPV, accuracy, log-loss, MAE, MSE, R-squared, Youden's J threshold optimization), Friedman/Nemenyi statistical tests, bootstrap confidence intervals, Geometric Difference score for quantum advantage assessment.
-
-**Reporting**: Structured methods and results LaTeX sections auto-generated from experiment config with pre-written prose from a text registry. Markdown reports. Mean +/- std for all metrics. BibTeX references auto-collected.
-
-**Reproducibility**: Deterministic seeding across all stochastic operations. Single YAML config defines the entire experiment. Preprocessing state saved per fold. Model complexity presets (quick/small/medium/large/exhaustive/auto) for consistent, publishable results.
+- [Installation](#installation)
+- [Supported Data Types](#supported-data-types)
+  - [Tabular Data](#tabular-data)
+  - [NIfTI Medical Imaging](#nifti-medical-imaging)
+  - [Data Fusion](#data-fusion)
+- [Models](#models)
+  - [Model–Data Compatibility](#modeldata-compatibility)
+  - [Classical Models](#classical-models)
+  - [Quantum Models](#quantum-models)
+  - [Geometric Difference Score](#geometric-difference-score)
+- [Quickstart: Tabular Workflow](#quickstart-tabular-workflow)
+- [Quickstart: NIfTI Imaging Workflow](#quickstart-nifti-imaging-workflow)
+- [Preprocessing](#preprocessing)
+- [Quantum Best Practices](#quantum-best-practices)
+- [Model Complexity Presets](#model-complexity-presets)
+- [Running Benchmarks](#running-benchmarks)
+- [Runtime Expectations](#runtime-expectations)
+- [Explainability](#explainability)
+- [Reporting](#reporting)
+- [Inference on New Data](#inference-on-new-data)
+- [Included Datasets](#included-datasets)
+- [Configuration Reference](#configuration-reference)
+- [Notebooks](#notebooks)
+- [Project Structure](#project-structure)
+- [Docker / Singularity](#docker--singularity)
+- [Development](#development)
+- [References](#references)
+- [Citation](#citation)
+- [License](#license)
 
 ---
 
 ## Installation
 
-### Core install
-
 ```bash
+# Core (tabular models only)
 pip install claryon
-```
 
-### With optional dependencies
-
-```bash
-# Quantum models (PennyLane)
+# With quantum models (PennyLane)
 pip install claryon[quantum]
 
-# Medical imaging (NIfTI, TIFF)
+# With medical imaging (NIfTI, TIFF)
 pip install claryon[imaging]
 
-# Radiomics extraction
-pip install numpy versioneer
-pip install pyradiomics==3.0.1 --no-build-isolation
-pip install claryon[radiomics]
-
-# Gradient boosting (XGBoost, LightGBM, CatBoost)
+# With gradient boosting (XGBoost, LightGBM, CatBoost)
 pip install claryon[boosting]
 
-# Explainability (SHAP, LIME)
+# With explainability (SHAP, LIME)
 pip install claryon[explain]
 
-# Reporting (LaTeX, Markdown, figures)
-pip install claryon[report]
-
-# Deep learning (PyTorch CNNs)
+# With deep learning (PyTorch CNNs)
 pip install claryon[torch]
-
-# TabPFN (downloads pretrained weights on first use, ~500 MB)
-pip install claryon[tabular-dl]
 
 # Everything
 pip install claryon[all]
 ```
 
-### From source (development)
+**From source:**
 
 ```bash
 git clone https://github.com/lpapp-muw/CLARYON.git
@@ -90,25 +78,21 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
 ```
 
-### Notes on specific dependencies
-
-**pyradiomics**: Standard `pip install pyradiomics` fails due to broken build metadata. Use: `pip install numpy versioneer && pip install pyradiomics==3.0.1 --no-build-isolation`
-
-**TabPFN**: Downloads pretrained model weights (~500 MB) on first use. Requires Python <= 3.11.
-
-**PyTorch**: CPU-only is sufficient for quantum models and small CNNs. For large imaging datasets, install with CUDA: `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121`
-
-### Requirements
-
-Python >= 3.10. Tested on 3.10, 3.11, 3.12.
+**Notes:**
+- Python >= 3.10 required. Tested on 3.10, 3.11, 3.12.
+- pyradiomics requires: `pip install numpy versioneer && pip install pyradiomics==3.0.1 --no-build-isolation`
+- TabPFN downloads pretrained weights (~500 MB) on first use. Requires Python <= 3.11.
+- PyTorch CPU is sufficient for quantum models. For large imaging, install with CUDA: `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121`
 
 ---
 
-## Quickstart
+## Supported Data Types
 
-### 1. Prepare your data
+CLARYON accepts two primary data types. Models are matched to data types via the `type` field in the config.
 
-Tabular CSV with semicolon separator, a `label` column, and an optional `Key` column:
+### Tabular Data
+
+Semicolon-separated CSV with feature columns (`f0`, `f1`, ...) and a `label` column:
 
 ```
 Key;f0;f1;f2;f3;label
@@ -116,26 +100,167 @@ S0000;5.1;3.5;1.4;0.2;0
 S0001;7.0;3.2;4.7;1.4;1
 ```
 
-### 2. Write a YAML config
+Sources: radiomic features from pyradiomics, clinical parameters, lab values, any structured numeric data. The included PSMA-11 dataset (306 ADC + PSMA radiomic features from [68Ga]Ga-PSMA-11 PET/MR) is a representative example.
+
+Config:
+```yaml
+data:
+  tabular:
+    path: datasets/wisconsin-breast-cancer/train.csv
+    label_col: label
+    sep: ";"
+```
+
+### NIfTI Medical Imaging
+
+NIfTI volumes (.nii, .nii.gz) with optional binary masks. CLARYON pairs images and masks by filename pattern matching.
+
+Typical use case: PET/CT or PET/MR volumes with lesion masks. The mask isolates the volume of interest (VOI) — only masked voxels are used.
+
+Config:
+```yaml
+data:
+  imaging:
+    path: data/pet_volumes
+    format: nifti
+    image_pattern: "*PET*"
+    mask_pattern: "*mask*"
+```
+
+**Three processing pathways** depending on model type:
+
+| Model type | What happens to NIfTI data | Use case |
+|---|---|---|
+| `imaging` | Raw 3D tensors → PyTorch CNN | Classical deep learning |
+| `tabular_quantum` | Volumes flattened → amplitude encoding → quantum circuit | Quantum ML on imaging |
+| `tabular` | Volumes flattened → classical ML | Classical ML on voxel features |
+
+**Critical for quantum**: Use small VOIs (around lesions), not whole-body scans. A 16x16x16 VOI = 4096 voxels before feature selection — use `max_features` to cap qubit count.
+
+### Data Fusion
+
+Combine tabular features with imaging data. Both sources are loaded and concatenated (early fusion):
 
 ```yaml
+data:
+  tabular:
+    path: data/radiomics.csv
+    label_col: label
+    sep: ";"
+  imaging:
+    path: data/pet_volumes
+    format: nifti
+    mask_pattern: "*mask*"
+```
+
+Radiomics extraction from NIfTI volumes is also supported:
+
+```yaml
+data:
+  radiomics:
+    extract: true
+    config: configs/pyradiomics_default.yaml
+```
+
+---
+
+## Models
+
+CLARYON has 18 registered models plus an ensemble aggregator.
+
+### Model–Data Compatibility
+
+| Model | Type | Tabular | NIfTI (flattened) | NIfTI (3D volumes) |
+|---|---|---|---|---|
+| XGBoost | `tabular` | yes | yes | — |
+| LightGBM | `tabular` | yes | yes | — |
+| CatBoost | `tabular` | yes | yes | — |
+| MLP | `tabular` | yes | yes | — |
+| TabPFN | `tabular` | yes | yes | — |
+| TabM | `tabular` | yes | yes | — |
+| RealMLP | `tabular` | yes | yes | — |
+| ModernNCA | `tabular` | yes | yes | — |
+| CNN 2D | `imaging` | — | — | yes |
+| CNN 3D | `imaging` | — | — | yes |
+| Kernel SVM | `tabular_quantum` | yes | yes | — |
+| Simplified Kernel SVM | `tabular_quantum` | yes | yes | — |
+| QDC Hadamard | `tabular_quantum` | yes | yes | — |
+| QDC SWAP | `tabular_quantum` | yes | yes | — |
+| Quantum GP | `tabular_quantum` | yes | yes | — |
+| QNN | `tabular_quantum` | yes | yes | — |
+| QCNN-MUW | `tabular_quantum` | yes | yes | — |
+| QCNN-ALT | `tabular_quantum` | yes | yes | — |
+| Ensemble | `tabular` | yes | yes | — |
+
+"NIfTI (flattened)" means volumes are flattened to feature vectors, then processed like tabular data — including amplitude encoding for quantum models.
+
+### Classical Models
+
+| Model | Backend | Key parameters |
+|---|---|---|
+| `xgboost` | XGBoost | n_estimators, max_depth, learning_rate |
+| `lightgbm` | LightGBM | n_estimators, max_depth, learning_rate |
+| `catboost` | CatBoost | iterations, depth, learning_rate |
+| `mlp` | scikit-learn | hidden_layer_sizes, max_iter |
+| `tabpfn` | TabPFN | (pretrained, no tuning) |
+| `cnn_2d` | PyTorch | epochs, batch_size, n_conv_layers |
+| `cnn_3d` | PyTorch | epochs, batch_size, n_conv_layers |
+| `tabm` | PyTorch | epochs, lr |
+| `realmlp` | PyTorch | epochs, lr |
+| `modernnca` | PyTorch | epochs, lr |
+
+### Quantum Models
+
+All quantum models use PennyLane's `default.qubit` simulator. Data is amplitude-encoded: padded to 2^n and L2-normalized. Qubit count = log2(padded feature count).
+
+| Model | Circuit design | Reference |
+|---|---|---|
+| `kernel_svm` | Amplitude embedding → Projector kernel → SVC | Havlicek et al., 2019 |
+| `sq_kernel_svm` | Mottonen + adjoint Mottonen → Projector → linear prediction | Moradi et al., 2022 |
+| `qdc_hadamard` | Ancilla + controlled Mottonen + Hadamard test → class-max similarity | Moradi et al., 2022 |
+| `qdc_swap` | Two registers + CSWAP + ancilla → class-max similarity (uses 2n+1 qubits) | Moradi et al., 2022 |
+| `quantum_gp` | Mottonen kernel → full GP posterior → sigmoid classification | Moradi et al., 2023 |
+| `qnn` | Per-class Mottonen + Rot/CNOT layers → margin loss (PyTorch) | Moradi et al., 2023 |
+| `qcnn_muw` | Amplitude embedding → conv/pool layers → ArbitraryUnitary → Projector | Papp et al., under revision |
+| `qcnn_alt` | Alternative conv/pool architecture → Projector | MedUni Wien design |
+
+### Geometric Difference Score
+
+The GDQ score (Huang et al., 2021) quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels. GDQ > 1.0 suggests potential quantum advantage.
+
+```python
+from claryon.evaluation.geometric_difference import quantum_advantage_analysis
+
+analysis = quantum_advantage_analysis(K_Q, y_train, X_train)
+print(analysis["recommendation"])   # classical_sufficient / quantum_advantage_likely / inconclusive
+print(analysis["g_CQ"])             # geometric difference per classical kernel
+```
+
+Demonstrated in notebook `03_quantum_models.ipynb`.
+
+---
+
+## Quickstart: Tabular Workflow
+
+```yaml
+# configs/my_tabular.yaml
 experiment:
   name: my_experiment
   seed: 42
   results_dir: Results/my_experiment
-  complexity: medium          # or: quick, small, large, exhaustive, auto
+  complexity: medium
 
 data:
   tabular:
     path: datasets/wisconsin-breast-cancer/train.csv
     label_col: label
-    id_col: Key
     sep: ";"
 
 preprocessing:
   zscore: true                # auto-skipped for quantum models
   feature_selection: true
   spearman_threshold: 0.8
+  max_features: 8             # recommended for quantum (3 qubits)
 
 cv:
   strategy: kfold
@@ -166,43 +291,190 @@ reporting:
   figures: true
 ```
 
-### 3. Run
-
 ```bash
-claryon -v run -c config.yaml
+claryon -v run -c configs/my_tabular.yaml
 ```
 
-### 4. Results
-
+Results:
 ```
 Results/my_experiment/
-├── metrics_summary.csv
+├── metrics_summary.csv       # model;bacc;bacc_std;auc;auc_std;...
 ├── report.md
-├── methods.tex
-├── results.tex
-├── references_needed.txt
+├── methods.tex               # structured prose for publication
+├── results.tex               # LaTeX table with mean ± std
+├── references_needed.txt     # BibTeX keys used
 ├── run_info.json
 ├── config_used.yaml
-├── xgboost/
-│   ├── seed_42/fold_0/
-│   │   ├── Predictions.csv
-│   │   └── preprocessing_state.json
-│   └── explanations/
-│       ├── shap_values.npy
-│       ├── shap_bar.png
-│       ├── shap_waterfall_sample_0.png
-│       └── lime_explanation_sample_0.png
-├── kernel_svm/
-│   └── ...
-└── qcnn_muw/
-    └── ...
+├── xgboost/seed_42/fold_0/
+│   ├── Predictions.csv
+│   └── preprocessing_state.json
+└── kernel_svm/seed_42/fold_0/
+    ├── Predictions.csv
+    └── preprocessing_state.json
 ```
 
 ---
 
-## Model Complexity Presets
+## Quickstart: NIfTI Imaging Workflow
 
-Nuclear medicine researchers unfamiliar with quantum model tuning should use presets instead of raw parameters. Quantum models are sensitive to training configuration — using `quick` defaults for publication will produce misleadingly poor quantum performance.
+### Classical CNN on PET volumes
+
+```yaml
+experiment:
+  name: pet_cnn
+  seed: 42
+  complexity: medium
+
+data:
+  imaging:
+    path: datasets/nifti_demo
+    format: nifti
+    image_pattern: "*PET*"
+    mask_pattern: "*mask*"
+
+cv:
+  strategy: kfold
+  n_folds: 3
+  seeds: [42]
+
+models:
+  - name: cnn_3d
+    type: imaging
+    params:
+      epochs: 50
+      batch_size: 4
+
+evaluation:
+  metrics: [bacc, auc]
+```
+
+### Quantum QCNN on PET VOIs
+
+The core nuclear medicine quantum workflow (Papp et al., under revision; Moradi et al., 2022, 2023). NIfTI volumes are loaded, masked, flattened, then amplitude-encoded for quantum circuits.
+
+```yaml
+experiment:
+  name: pet_quantum
+  seed: 42
+  complexity: medium
+
+data:
+  imaging:
+    path: data/pet_voi              # small VOIs around lesions
+    format: nifti
+    mask_pattern: "*mask*"
+
+preprocessing:
+  feature_selection: true
+  max_features: 8                   # critical: limits to 3 qubits
+
+cv:
+  strategy: kfold
+  n_folds: 5
+  seeds: [42, 123]
+
+models:
+  - name: kernel_svm
+    type: tabular_quantum           # flattened VOI → amplitude encoding
+  - name: qcnn_muw
+    type: tabular_quantum
+  - name: xgboost
+    type: tabular                   # classical comparison on same features
+```
+
+**Important**: Use small VOIs (lesion-centered), not whole-body scans. Always set `max_features` for quantum imaging.
+
+| VOI size | Voxels (masked) | After max_features | Qubits | Feasibility |
+|---|---|---|---|---|
+| 4x4x4 | 64 | 8 | 3 | Fast (< 1 min/fold) |
+| 8x8x8 | 512 | 16 | 4 | Minutes per fold |
+| 16x16x16 | 4096 | 32 | 5 | Hours per fold |
+| 32x32x32 | 32768 | — | — | Not feasible on simulator |
+
+---
+
+## Preprocessing
+
+All preprocessing runs inside the cross-validation loop, fitting on training data only. State is saved per fold for reproducible inference.
+
+### Z-Score Normalization
+
+Features standardized to zero mean, unit variance. **Automatically skipped for quantum models** — amplitude encoding L2-normalizes the feature vector, and prior z-score distorts quantum kernel geometry by 30-40%.
+
+### mRMR Feature Selection
+
+Features with Spearman correlation above threshold are clustered as redundant. Most label-correlated feature per cluster is kept.
+
+```yaml
+preprocessing:
+  feature_selection: true
+  spearman_threshold: 0.8
+  max_features: 8            # optional hard cap (critical for quantum)
+```
+
+**Warning**: mRMR only removes correlated features. If features are uncorrelated, mRMR removes nothing. Always set `max_features` for quantum models.
+
+### Binary Grouping
+
+```yaml
+binary_grouping:
+  enabled: true
+  positive: [3, 4]            # e.g., ISUP grades 3+4 → high risk
+  negative: [1, 2]
+```
+
+### Image Normalization
+
+```yaml
+preprocessing:
+  image_normalization: per_image       # each volume to [0, 1]
+  # OR: cohort_global                  # global min/max from training set
+```
+
+---
+
+## Quantum Best Practices
+
+### Feature count → qubit count
+
+| Features after mRMR | Padded to | Qubits | Zero-pad waste | Recommendation |
+|---|---|---|---|---|
+| 4 | 4 | 2 | 0% | Ideal |
+| 5–8 | 8 | 3 | 0–37% | **Recommended sweet spot** |
+| 9–16 | 16 | 4 | 0–44% | Acceptable |
+| 17–32 | 32 | 5 | 0–47% | Slow on simulator |
+| 33–64 | 64 | 6+ | up to 48% | Not recommended on single CPU |
+
+**Control qubit count with `max_features`:**
+
+```yaml
+preprocessing:
+  max_features: 8            # 3 qubits — best for simulator
+```
+
+### Why fewer qubits often improves results
+
+Amplitude encoding maps features to the unit hypersphere in 2^n dimensions. Zero-padded features dilute the signal. Observed on real medical data:
+
+| Dataset | Features → Qubits | Zero-pad waste | Quantum BACC |
+|---|---|---|---|
+| Iris | 4 → 2 | 0% | 1.00 |
+| Wisconsin | 13 → 4 | 19% | 0.76 |
+| HCC (no max_features) | 49 → 6 | 23% | 0.52 |
+| PSMA (no max_features) | 40 → 6 | 37% | 0.50 |
+
+### Model-specific notes
+
+| Model | Note |
+|---|---|
+| `sq_kernel_svm` | Returns BACC ~0.500 on balanced datasets — known limitation. Use `kernel_svm` instead. |
+| `qdc_swap` | Uses 2n+1 qubits. At 5+ data qubits, infeasible on simulator. Exclude from large-feature configs. |
+| `qcnn_muw`, `qcnn_alt` | Need ≥100 epochs. Use `complexity: medium` minimum. |
+| `quantum_gp` | Most robust quantum model on real data. |
+
+---
+
+## Model Complexity Presets
 
 ```yaml
 experiment:
@@ -211,305 +483,172 @@ experiment:
 
 | Preset | Quantum epochs | Quantum LR | Classical estimators | Use case |
 |---|---|---|---|---|
-| `quick` | 5 | 0.05 | 50 | CI/testing only. NOT for publication. |
-| `small` | 30 | 0.02 | 200 | Fast exploratory analysis |
-| `medium` | 100 | 0.01 | 500 | **Recommended for most studies** |
-| `large` | 300 | 0.005 | 1000 | Final results for publications |
-| `exhaustive` | 500 | 0.002 | 2000 | Maximum effort |
-| `auto` | dataset-dependent | dataset-dependent | dataset-dependent | CLARYON analyzes your data and time budget, picks the best preset per model |
+| `quick` | 5 | 0.05 | 50 | CI/testing only |
+| `small` | 30 | 0.02 | 200 | Fast exploratory |
+| `medium` | 100 | 0.01 | 500 | **Recommended for publication** |
+| `large` | 300 | 0.005 | 1000 | Final results, small datasets |
+| `exhaustive` | 500 | 0.002 | 2000 | Cluster only |
+| `auto` | varies | varies | varies | Estimates per model (approximate) |
 
-Auto mode uses `max_runtime_minutes` (default: 120) to select the highest quality preset that fits your time budget:
-
-```yaml
-experiment:
-  complexity: auto
-  max_runtime_minutes: 60
-```
-
-Per-model override (expert users):
-
+Per-model override:
 ```yaml
 models:
   - name: qcnn_muw
-    type: tabular_quantum
-    preset: large             # override global complexity for this model
+    preset: large
   - name: xgboost
-    type: tabular
-    params:                   # or use raw params (highest priority)
+    params:
       n_estimators: 1000
 ```
 
----
-
-## Preprocessing Pipeline
-
-Preprocessing runs inside the cross-validation loop, fitting on training data only to prevent data leakage.
-
-### Z-Score Normalization
-
-Features are standardized to zero mean and unit variance. Parameters are computed on the training fold and applied to the test fold.
-
-**Important**: Z-score is automatically skipped for quantum models. Amplitude encoding already L2-normalizes the feature vector, and prior z-score normalization distorts the geometric structure in Hilbert space, degrading quantum kernel performance by 30-40%.
-
-### mRMR Feature Selection
-
-Features with Spearman rank correlation above the threshold (default 0.8) are clustered as redundant. Within each cluster, the feature with the highest correlation to the target label is kept. Applied to both classical and quantum models.
-
-```yaml
-preprocessing:
-  zscore: true                # auto-skipped for quantum models
-  feature_selection: true
-  spearman_threshold: 0.8
-  max_features: 32            # optional hard cap
-```
-
-### Binary Grouping
-
-User-defined multi-class to binary relabeling:
-
-```yaml
-binary_grouping:
-  enabled: true
-  positive: [3, 4]            # e.g., ISUP grades 3+4 -> high risk
-  negative: [1, 2]            # e.g., ISUP grades 1+2 -> low risk
-```
-
-### Image Normalization
-
-```yaml
-preprocessing:
-  image_normalization: per_image       # each volume scaled to [0, 1]
-  # OR
-  image_normalization: cohort_global   # global min/max from training set
-```
+**Auto mode note**: Runtime estimates for quantum models may underestimate significantly. Use explicit presets for predictable runtimes.
 
 ---
 
-## Included Datasets
-
-CLARYON ships with pre-processed, ready-to-use datasets in `datasets/`. All tabular files use semicolon separator, `f0..fN` feature columns, and integer-encoded `label` column. No additional download or preprocessing required.
-
-| Dataset | Path | Samples | Features | Domain | Source |
-|---|---|---|---|---|---|
-| Iris | `datasets/iris/iris.csv` | 150 | 4 | Demo / smoke test | UCI / scikit-learn |
-| Iris (binary) | `datasets/iris/iris_binary.csv` | 150 | 4 | Demo / smoke test | UCI / scikit-learn |
-| Wisconsin Breast Cancer | `datasets/wisconsin-breast-cancer/train.csv` | 569 | 30 | Oncology | UCI (CC BY 4.0) |
-| Cervical Cancer | `datasets/cervical-cancer/train.csv` | 858 | 26 | Oncology | UCI (CC BY 4.0) |
-| HCC Survival | `datasets/hcc-survival/train.csv` | 165 | 49 | Oncology (HCC) | Kaggle (CC BY-NC-SA 4.0) |
-| PSMA-11 PET Radiomics | `datasets/psma11/train.csv` | 133 | 306 | Nuclear medicine | OSF (open access) |
-| NIfTI Demo (synthetic) | `datasets/nifti_demo/` | 32 | volumetric | Pipeline validation | Generated |
-
-See `datasets/DATA_SOURCES.md` for full attribution, licenses, and references for each dataset.
-
----
-
-## NIfTI / Medical Imaging
-
-Image and mask file patterns are user-configurable:
-
-```yaml
-data:
-  imaging:
-    path: data/nifti_dataset
-    format: nifti
-    image_pattern: "*"              # match all non-mask NIfTI files
-    mask_pattern: "*mask*"
-
-models:
-  - name: cnn_3d
-    type: imaging
-    params:
-      epochs: 20
-      batch_size: 4
-```
-
-Note: CNN models (`cnn_2d`, `cnn_3d`) require imaging data. They will be skipped if only tabular data is provided. Similarly, tabular and quantum models require tabular data and will be skipped on imaging-only configs.
-
-For radiomics extraction:
-
-```yaml
-data:
-  radiomics:
-    extract: true
-    config: configs/pyradiomics_default.yaml
-```
-
----
-
-## Quantum Models
-
-Quantum models use PennyLane's `default.qubit` simulator. Data is automatically amplitude-encoded when `type: tabular_quantum` is set. Qubit count is derived from feature count after mRMR selection.
-
-| Model | Circuit | Reference |
-|---|---|---|
-| `kernel_svm` | Amplitude embedding, Projector kernel, SVC | Havlicek et al., 2019 |
-| `sq_kernel_svm` | Mottonen + adjoint Mottonen, Projector kernel, linear prediction | Moradi et al., 2022 |
-| `qdc_hadamard` | Ancilla + controlled Mottonen + Hadamard test, class-max similarity | Moradi et al., 2022 |
-| `qdc_swap` | Two registers + CSWAP + ancilla, class-max similarity (2n+1 qubits) | Moradi et al., 2022 |
-| `quantum_gp` | Mottonen kernel, full GP posterior, sigmoid classification | Moradi et al., 2023 |
-| `qnn` | Per-class Mottonen + Rot/CNOT layers, margin loss (PyTorch) | Moradi et al., 2023 |
-| `qcnn_muw` | Amplitude embedding, conv/pool layers, ArbitraryUnitary, Projector | Papp et al., under revision |
-| `qcnn_alt` | Alternative conv/pool architecture, Projector | MedUni Wien design |
-| `hybrid` | Quantum-classical hybrid (stub) | -- |
-
-Practical qubit limit: <=20 recommended, <=30 possible. Resource warnings are logged automatically. CLARYON estimates memory and runtime before training and skips models that would exceed available resources.
-
-### Geometric Difference Score
-
-The GDQ score (Huang et al., 2021) quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels. GDQ > 1.0 suggests potential quantum advantage; GDQ <= 1.0 means classical models are likely sufficient.
-
-GDQ is available as a library function and demonstrated in notebook `03_quantum_models.ipynb`. Example usage:
-
-```python
-from claryon.evaluation.geometric_difference import quantum_advantage_analysis
-
-# K_Q is the quantum kernel matrix from a trained quantum kernel SVM
-analysis = quantum_advantage_analysis(K_Q, y_train, X_train)
-print(analysis["recommendation"])   # classical_sufficient / quantum_advantage_likely / inconclusive
-print(analysis["g_CQ"])             # geometric difference per classical kernel
-```
-
-The analysis compares the quantum kernel against linear, RBF, and polynomial classical kernels and produces a 3-panel visualization report (geometric difference bars, model complexity comparison, recommendation).
-
----
-
-## Inference on New Data
-
-After training, use saved models and preprocessing state to predict on new patients:
+## Running Benchmarks
 
 ```bash
-claryon infer \
-    --model-dir Results/my_experiment/xgboost/seed_42/fold_0/ \
-    --input data/new_patients.csv \
-    --output predictions_new.csv
+# All 3 datasets
+bash scripts/run_benchmark.sh
+
+# Single dataset
+bash scripts/run_benchmark.sh wisconsin
+
+# In a screen session (recommended)
+screen -S benchmark
+bash scripts/run_benchmark.sh
+# Detach: Ctrl+A then D | Reattach: screen -r benchmark
 ```
 
-The inference command loads the saved model and preprocessing state (z-score coefficients, feature selection mask) and applies them to new data identically to training.
+Available: `wisconsin`, `hcc`, `psma11`. Uses `max_features: 8` (3 qubits).
 
 ---
 
 ## Runtime Expectations
 
-### Per-fold runtimes
+### Per-fold (observed, `complexity: medium`, single CPU)
 
-Approximate runtimes for `complexity: medium` on a single CPU core:
-
-| Model | 150 samples, 4 features | 500 samples, 30 features | 1000 samples, 100 features |
+| Model | ~150 samples, 4q | ~570 samples, 4q | ~860 samples, 5q |
 |---|---|---|---|
-| XGBoost | 1 second | 5 seconds | 15 seconds |
-| LightGBM | 1 second | 3 seconds | 10 seconds |
-| CatBoost | 2 seconds | 10 seconds | 30 seconds |
-| MLP | 1 second | 5 seconds | 15 seconds |
-| kernel_svm (quantum) | 1 minute | 15 minutes | 2+ hours |
-| qcnn_muw (quantum) | 8 minutes | 1 hour | 5+ hours |
-| qnn (quantum) | 5 minutes | 45 minutes | 3+ hours |
-| cnn_3d | 2 minutes | 10 minutes | 30 minutes (GPU recommended) |
+| Classical (XGB/LGB/CB/MLP) | < 1 sec | < 1 sec | 1–2 sec |
+| kernel_svm | < 1 min | 3 min | 15 min |
+| sq_kernel_svm | 1 min | 11 min | 45 min |
+| qdc_hadamard | 1 min | 10 min | 80 min |
+| qdc_swap | 2 min | 20 min | **infeasible** (11q) |
+| quantum_gp | 1 min | 10 min | 40 min |
+| qnn | 3 min | 20 min | 1–2 hr |
+| qcnn_muw / qcnn_alt | 5 min | 30 min | 2–4 hr |
+| cnn_3d | 2 min | 10 min | 30 min (GPU) |
 
-Times are per fold. Multiply by n_folds x n_seeds for total. GPU accelerates CNNs only; quantum models run on CPU (PennyLane simulator).
+Multiply by folds × seeds (e.g., 5 × 3 = 15).
 
-### Total experiment estimates
+### Total experiment (observed, 5-fold CV × 3 seeds)
 
-These estimates assume 5-fold CV with 3 seeds (15 folds total) on a single CPU core:
+| Dataset | Samples | Qubits | Classical | Quantum | Total |
+|---|---|---|---|---|---|
+| Iris | 150 | 2 | < 1 min | 30 min | ~30 min |
+| Wisconsin | 569 | 3 | < 1 min | 2–4 hr | ~4 hr |
+| HCC Survival | 165 | 3 | < 1 min | 1–3 hr | ~3 hr |
+| PSMA-11 | 133 | 3 | < 1 min | 1–3 hr | ~3 hr |
+| Cervical | 858 | 5 | < 1 min | **3–5 days** | **3–5 days** |
 
-| Complexity | Classical only (4 models) | Classical + Quantum (12 models) |
-|---|---|---|
-| `quick` | 5-15 minutes | 1-3 hours |
-| `small` | 10-30 minutes | 3-8 hours |
-| `medium` | 15-45 minutes | 6-20 hours |
-| `large` | 30-90 minutes | 2-7 days |
-| `exhaustive` | 1-3 hours | 1-3 weeks |
+Use `max_features: 8` (3 qubits) for all quantum experiments. Exclude `qdc_swap` when data qubits > 4.
 
-Quantum model runtime scales steeply with sample count and qubit count. For datasets with many features, mRMR feature selection reduces qubit requirements substantially. Datasets with >500 samples and >30 features (post-mRMR) may require days at `large` complexity.
+---
 
-**Recommendation**: Use `complexity: medium` for initial experiments and publication-grade results on small-to-medium datasets. Reserve `large` and `exhaustive` for final benchmarks on small datasets (<200 samples) or when running on a compute cluster.
+## Explainability
+
+SHAP and LIME work on all models, including quantum.
+
+```yaml
+explainability:
+  shap: true
+  lime: true
+  max_features: 32
+  max_test_samples: 5
+```
+
+Outputs: `shap_bar.png`, `shap_beeswarm.png`, `shap_waterfall_sample_*.png`, `lime_explanation_sample_*.png`. GradCAM available for CNN models.
+
+---
+
+## Reporting
+
+Auto-generated structured methods and results for publication:
+
+```yaml
+reporting:
+  markdown: true
+  latex: true
+  figures: true
+  figure_dpi: 300
+```
+
+Outputs: `methods.tex` (prose), `results.tex` (table), `references_needed.txt` (BibTeX keys), `report.md`.
+
+---
+
+## Inference on New Data
+
+```bash
+claryon infer \
+    --model-dir Results/my_experiment/xgboost/seed_42/fold_0/ \
+    --input data/new_patients.csv \
+    --output predictions.csv
+```
+
+Loads saved model + preprocessing state and applies identically to training.
+
+---
+
+## Included Datasets
+
+All pre-processed, semicolon-separated, ready to use.
+
+| Dataset | Path | Samples | Features | Domain |
+|---|---|---|---|---|
+| Iris | `datasets/iris/` | 150 | 4 | Demo / smoke test |
+| Wisconsin Breast Cancer | `datasets/wisconsin-breast-cancer/` | 569 | 30 | Oncology (UCI, CC BY 4.0) |
+| Cervical Cancer | `datasets/cervical-cancer/` | 858 | 26 | Oncology (UCI, CC BY 4.0) |
+| HCC Survival | `datasets/hcc-survival/` | 165 | 49 | Oncology (Kaggle, CC BY-NC-SA 4.0) |
+| PSMA-11 Radiomics | `datasets/psma11/` | 133 | 306 | Nuclear medicine (OSF, open) |
+| NIfTI Demo | `datasets/nifti_demo/` | 32 | volumetric | Synthetic (pipeline validation) |
+
+See `datasets/DATA_SOURCES.md` for full attribution and licenses.
 
 ---
 
 ## Configuration Reference
 
-### Experiment
+Full reference: [docs/config_reference.md](docs/config_reference.md). Key sections:
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `experiment.name` | string | `"experiment"` | Experiment identifier |
-| `experiment.seed` | int | `42` | Global random seed |
-| `experiment.results_dir` | string | `"Results"` | Output directory |
-| `experiment.complexity` | string | `"medium"` | `quick`, `small`, `medium`, `large`, `exhaustive`, `auto` |
-| `experiment.max_runtime_minutes` | int | `120` | Time budget for auto mode |
+| Section | Key parameters |
+|---|---|
+| `experiment` | `name`, `seed`, `results_dir`, `complexity`, `max_runtime_minutes` |
+| `data.tabular` | `path`, `label_col`, `sep`, `id_col` |
+| `data.imaging` | `path`, `format`, `image_pattern`, `mask_pattern` |
+| `preprocessing` | `zscore`, `feature_selection`, `spearman_threshold`, `max_features` |
+| `cv` | `strategy`, `n_folds`, `seeds`, `test_size` |
+| `models[]` | `name`, `type`, `preset`, `params`, `enabled` |
+| `explainability` | `shap`, `lime`, `grad_cam`, `max_features`, `max_test_samples` |
+| `evaluation` | `metrics`, `statistical_tests`, `confidence_level` |
+| `reporting` | `markdown`, `latex`, `figures`, `figure_dpi` |
 
-### Data
+Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `data.tabular.path` | string | required | Path to CSV/Parquet |
-| `data.tabular.label_col` | string | `"label"` | Label column name |
-| `data.tabular.id_col` | string | `"Key"` | Sample ID column |
-| `data.tabular.sep` | string | `";"` | CSV separator |
-| `data.imaging.path` | string | -- | Path to imaging directory |
-| `data.imaging.format` | string | `"nifti"` | `nifti` or `tiff` |
-| `data.imaging.image_pattern` | string | `"*"` | Glob for image volumes |
-| `data.imaging.mask_pattern` | string | `"*mask*"` | Glob for mask files |
-| `data.radiomics.extract` | bool | `false` | Run pyradiomics extraction |
-| `data.fusion` | string | `"early"` | `early`, `late`, or `intermediate` |
+---
 
-### Preprocessing
+## Notebooks
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `preprocessing.zscore` | bool | `true` | Z-score normalize (auto-skipped for quantum) |
-| `preprocessing.feature_selection` | bool | `true` | Run mRMR feature selection |
-| `preprocessing.spearman_threshold` | float | `0.8` | Redundancy threshold |
-| `preprocessing.max_features` | int | -- | Optional hard cap after mRMR |
-| `preprocessing.image_normalization` | string | `"per_image"` | `per_image` or `cohort_global` |
-
-### Cross-Validation
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `cv.strategy` | string | `"kfold"` | `kfold`, `holdout`, `nested`, `external`, `group_kfold` |
-| `cv.n_folds` | int | `5` | Number of folds |
-| `cv.seeds` | list[int] | `[42]` | Seeds for repeated CV |
-| `cv.test_size` | float | `0.2` | Holdout test fraction |
-
-### Models
-
-```yaml
-models:
-  - name: xgboost             # registry name
-    type: tabular              # tabular, tabular_quantum, or imaging
-    preset: medium             # optional: override global complexity
-    params: {}                 # optional: override preset (expert)
-    enabled: true              # set false to skip
-```
-
-Available: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
-
-### Explainability
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `explainability.shap` | bool | `false` | Run SHAP explanations |
-| `explainability.lime` | bool | `false` | Run LIME explanations |
-| `explainability.grad_cam` | bool | `false` | Run GradCAM (CNN only) |
-| `explainability.max_features` | int | `32` | Feature cap |
-| `explainability.max_test_samples` | int | `5` | Samples to explain |
-
-### Evaluation
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `evaluation.metrics` | list | `[bacc, auc, ...]` | Metrics to compute |
-| `evaluation.statistical_tests` | list | `[]` | `friedman` supported |
-| `evaluation.confidence_level` | float | `0.95` | CI level |
-
-### Reporting
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `reporting.markdown` | bool | `true` | Generate Markdown report |
-| `reporting.latex` | bool | `false` | Generate LaTeX report |
-| `reporting.figures` | bool | `true` | Generate figures |
-| `reporting.figure_dpi` | int | `300` | Figure resolution |
+| Notebook | Content |
+|---|---|
+| `01_quickstart.ipynb` | Install, load iris, run XGBoost, inspect predictions |
+| `02_tabular_classification.ipynb` | Full tabular workflow with multiple models |
+| `03_quantum_models.ipynb` | All quantum models on iris, GDQ score demo |
+| `04_nifti_imaging.ipynb` | NIfTI + masks, 3D CNN |
+| `05_explainability.ipynb` | SHAP + LIME on classical and quantum models |
+| `06_results_dashboard.ipynb` | Metrics visualization and statistical comparison |
+| `07_radiomics.ipynb` | Radiomics extraction, merge, train |
+| `08_custom_model_guide.ipynb` | How to add a new model using @register |
 
 ---
 
@@ -532,30 +671,20 @@ claryon/
 │   ├── classical/            # XGBoost, LightGBM, CatBoost, MLP, CNN
 │   ├── quantum/              # Kernel SVM, QDC, GP, QNN, QCNN
 │   ├── presets.yaml          # Complexity preset definitions
-│   ├── preset_resolver.py    # Preset resolution logic
-│   ├── auto_complexity.py    # Auto mode (dataset + budget analysis)
 │   └── ensemble.py           # Softmax averaging
 ├── explainability/           # SHAP, LIME, GradCAM, plots
 ├── evaluation/               # Metrics, Friedman/Nemenyi, GDQ, figures
-└── reporting/                # Structured LaTeX, Markdown, method descriptions, BibTeX
+└── reporting/                # Structured LaTeX, Markdown, BibTeX
+
+scripts/
+└── run_benchmark.sh          # Benchmark runner for included datasets
+
+datasets/                     # Pre-processed, ready-to-use datasets
+configs/                      # Example + benchmark YAML configs
+docs/                         # Architecture, config reference, model guide, user guide
+examples/notebooks/           # 8 tutorial Jupyter notebooks
+tests/                        # Unit + integration tests
 ```
-
----
-
-## Notebooks
-
-Tutorial notebooks in `examples/notebooks/`:
-
-| Notebook | Content |
-|---|---|
-| `01_quickstart.ipynb` | Install, load iris, run XGBoost, inspect predictions |
-| `02_tabular_classification.ipynb` | Full tabular workflow with multiple models |
-| `03_quantum_models.ipynb` | All quantum models on iris binary |
-| `04_nifti_imaging.ipynb` | NIfTI + masks, 3D CNN |
-| `05_explainability.ipynb` | SHAP + LIME on classical and quantum models |
-| `06_results_dashboard.ipynb` | Metrics visualization and statistical comparison |
-| `07_radiomics.ipynb` | Radiomics extraction, merge, train |
-| `08_custom_model_guide.ipynb` | How to add a new model using @register |
 
 ---
 
@@ -564,8 +693,10 @@ Tutorial notebooks in `examples/notebooks/`:
 1. Create `claryon/models/classical/mymodel_.py` (or `quantum/`)
 2. Subclass `ModelBuilder`, implement `fit()`, `predict_proba()`
 3. Decorate with `@register("model", "mymodel")`
-4. The model is auto-discovered — no other code changes needed
-5. Optionally add a prose description to `claryon/reporting/method_descriptions.yaml`
+4. Auto-discovered — no other code changes needed
+5. Optionally add prose to `claryon/reporting/method_descriptions.yaml`
+
+See notebook `08_custom_model_guide.ipynb`.
 
 ---
 
@@ -592,11 +723,10 @@ singularity run claryon.sif run -c configs/my_config.yaml
 
 ```bash
 python -m pytest tests/ -q --timeout=300
-python -m pytest tests/ --cov=claryon --cov-report=html
 ruff check claryon/ tests/
 ```
 
-CI runs on Python 3.10-3.12 via GitHub Actions.
+CI runs on Python 3.10–3.12 via GitHub Actions.
 
 ---
 
@@ -612,8 +742,6 @@ CI runs on Python 3.10-3.12 via GitHub Actions.
 ---
 
 ## Citation
-
-If you use CLARYON in your research, please cite both the software and the associated manuscript:
 
 ```bibtex
 @article{papp2026dawn,
