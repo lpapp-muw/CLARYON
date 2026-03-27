@@ -251,6 +251,8 @@ class Dataset:
         task_type: Learning task type.
         label_mapper: Maps raw labels ↔ integers (classification) or holds
             target stats (regression).
+        data_source: Origin of the data — "tabular" (CSV), "imaging" (flattened
+            NIfTI/TIFF), or "fused" (concatenated tabular + imaging).
         metadata: Arbitrary extra metadata.
     """
 
@@ -260,6 +262,7 @@ class Dataset:
     feature_names: Optional[List[str]] = None
     task_type: TaskType = TaskType.BINARY
     label_mapper: Any = None
+    data_source: str = "tabular"
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property

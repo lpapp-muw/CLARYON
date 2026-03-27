@@ -16,7 +16,6 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 - [Supported Data Types](#supported-data-types)
   - [Tabular Data](#tabular-data)
   - [NIfTI Medical Imaging](#nifti-medical-imaging)
-  - [Data Fusion](#data-fusion)
 - [Models](#models)
   - [Model–Data Compatibility](#modeldata-compatibility)
   - [Classical Models](#classical-models)
@@ -132,28 +131,15 @@ data:
 | Model type | What happens to NIfTI data | Use case |
 |---|---|---|
 | `imaging` | Raw 3D tensors → PyTorch CNN | Classical deep learning |
-| `tabular_quantum` | Volumes flattened → amplitude encoding → quantum circuit | Quantum ML on imaging |
-| `tabular` | Volumes flattened → classical ML | Classical ML on voxel features |
+| `tabular_quantum` | Volumes masked, flattened → amplitude encoding → quantum circuit | Quantum ML on imaging |
 
-**Critical for quantum**: Use small VOIs (around lesions), not whole-body scans. A 16x16x16 VOI = 4096 voxels before feature selection — use `max_features` to cap qubit count.
+Classical tabular models (`xgboost`, `lightgbm`, etc.) cannot run on NIfTI data directly. Use CNN models for classical deep learning or quantum models for quantum imaging. For classical ML on imaging features, extract radiomics first and use the tabular pipeline.
 
-### Data Fusion
+**Critical for quantum imaging**: Use small VOIs (lesion-centered), not whole-body scans. Feature selection (mRMR) is automatically skipped for NIfTI quantum models — the full masked voxel vector is amplitude-encoded. The user controls qubit count by choosing an appropriate VOI size.
 
-Combine tabular features with imaging data. Both sources are loaded and concatenated (early fusion):
+### Radiomics Extraction
 
-```yaml
-data:
-  tabular:
-    path: data/radiomics.csv
-    label_col: label
-    sep: ";"
-  imaging:
-    path: data/pet_volumes
-    format: nifti
-    mask_pattern: "*mask*"
-```
-
-Radiomics extraction from NIfTI volumes is also supported:
+CLARYON can extract radiomic features from NIfTI volumes using pyradiomics (IBSI-compliant). The extracted features become a tabular CSV that can be used with any tabular or quantum model:
 
 ```yaml
 data:
@@ -172,14 +158,14 @@ CLARYON has 18 registered models plus an ensemble aggregator.
 
 | Model | Type | Tabular | NIfTI (flattened) | NIfTI (3D volumes) |
 |---|---|---|---|---|
-| XGBoost | `tabular` | yes | yes | — |
-| LightGBM | `tabular` | yes | yes | — |
-| CatBoost | `tabular` | yes | yes | — |
-| MLP | `tabular` | yes | yes | — |
-| TabPFN | `tabular` | yes | yes | — |
-| TabM | `tabular` | yes | yes | — |
-| RealMLP | `tabular` | yes | yes | — |
-| ModernNCA | `tabular` | yes | yes | — |
+| XGBoost | `tabular` | yes | — | — |
+| LightGBM | `tabular` | yes | — | — |
+| CatBoost | `tabular` | yes | — | — |
+| MLP | `tabular` | yes | — | — |
+| TabPFN | `tabular` | yes | — | — |
+| TabM | `tabular` | yes | — | — |
+| RealMLP | `tabular` | yes | — | — |
+| ModernNCA | `tabular` | yes | — | — |
 | CNN 2D | `imaging` | — | — | yes |
 | CNN 3D | `imaging` | — | — | yes |
 | Kernel SVM | `tabular_quantum` | yes | yes | — |
@@ -190,7 +176,7 @@ CLARYON has 18 registered models plus an ensemble aggregator.
 | QNN | `tabular_quantum` | yes | yes | — |
 | QCNN-MUW | `tabular_quantum` | yes | yes | — |
 | QCNN-ALT | `tabular_quantum` | yes | yes | — |
-| Ensemble | `tabular` | yes | yes | — |
+| Ensemble | `tabular` | yes | — | — |
 
 "NIfTI (flattened)" means volumes are flattened to feature vectors, then processed like tabular data — including amplitude encoding for quantum models.
 
@@ -221,7 +207,7 @@ All quantum models use PennyLane's `default.qubit` simulator. Data is amplitude-
 | `qdc_swap` | Two registers + CSWAP + ancilla → class-max similarity (uses 2n+1 qubits) | Moradi et al., 2022 |
 | `quantum_gp` | Mottonen kernel → full GP posterior → sigmoid classification | Moradi et al., 2023 |
 | `qnn` | Per-class Mottonen + Rot/CNOT layers → margin loss (PyTorch) | Moradi et al., 2023 |
-| `qcnn_muw` | Amplitude embedding → conv/pool layers → ArbitraryUnitary → Projector | Papp et al., under revision |
+| `qcnn_muw` | Amplitude embedding → conv/pool layers → ArbitraryUnitary → Projector | Moradi et al., under revision |
 | `qcnn_alt` | Alternative conv/pool architecture → Projector | MedUni Wien design |
 
 ### Geometric Difference Score
@@ -350,7 +336,7 @@ evaluation:
 
 ### Quantum QCNN on PET VOIs
 
-The core nuclear medicine quantum workflow (Papp et al., under revision; Moradi et al., 2022, 2023). NIfTI volumes are loaded, masked, flattened, then amplitude-encoded for quantum circuits.
+The core nuclear medicine quantum workflow (Moradi et al., 2022, 2023; under revision). NIfTI volumes are loaded, masked to isolate the lesion VOI, flattened to a feature vector, then amplitude-encoded for quantum circuits. Feature selection (mRMR) is automatically skipped — the full masked voxel vector is used.
 
 ```yaml
 experiment:
@@ -364,10 +350,6 @@ data:
     format: nifti
     mask_pattern: "*mask*"
 
-preprocessing:
-  feature_selection: true
-  max_features: 8                   # critical: limits to 3 qubits
-
 cv:
   strategy: kfold
   n_folds: 5
@@ -378,18 +360,16 @@ models:
     type: tabular_quantum           # flattened VOI → amplitude encoding
   - name: qcnn_muw
     type: tabular_quantum
-  - name: xgboost
-    type: tabular                   # classical comparison on same features
 ```
 
-**Important**: Use small VOIs (lesion-centered), not whole-body scans. Always set `max_features` for quantum imaging.
+**Important**: The user controls qubit count by choosing VOI size — smaller VOIs = fewer voxels = fewer qubits. Feature selection does not apply; the quantum circuit sees the full spatial information within the mask.
 
-| VOI size | Voxels (masked) | After max_features | Qubits | Feasibility |
-|---|---|---|---|---|
-| 4x4x4 | 64 | 8 | 3 | Fast (< 1 min/fold) |
-| 8x8x8 | 512 | 16 | 4 | Minutes per fold |
-| 16x16x16 | 4096 | 32 | 5 | Hours per fold |
-| 32x32x32 | 32768 | — | — | Not feasible on simulator |
+| VOI size | Masked voxels (approx) | Qubits | Feasibility |
+|---|---|---|---|
+| 4×4×4 | ~64 | 6 | Minutes per fold |
+| 8×8×8 | ~512 | 9 | Slow on simulator |
+| 16×16×16 | ~4096 | 12 | At simulator limit |
+| Larger | >4096 | 13+ | Not feasible on CPU simulator |
 
 ---
 
@@ -445,12 +425,14 @@ preprocessing:
 | 17–32 | 32 | 5 | 0–47% | Slow on simulator |
 | 33–64 | 64 | 6+ | up to 48% | Not recommended on single CPU |
 
-**Control qubit count with `max_features`:**
+**For tabular data**, control qubit count with `max_features`:
 
 ```yaml
 preprocessing:
   max_features: 8            # 3 qubits — best for simulator
 ```
+
+**For NIfTI imaging**, qubit count is controlled by VOI size. Feature selection is automatically skipped — the full masked voxel vector is amplitude-encoded.
 
 ### Why fewer qubits often improves results
 
@@ -519,7 +501,7 @@ bash scripts/run_benchmark.sh
 # Detach: Ctrl+A then D | Reattach: screen -r benchmark
 ```
 
-Available: `wisconsin`, `hcc`, `psma11`. Uses `max_features: 8` (3 qubits).
+Available: `wisconsin`, `hcc`, `psma11` (3 of the 6 included datasets). Uses `max_features: 8` (3 qubits). Iris is excluded (trivial smoke test), cervical cancer is excluded (858 samples at 5 qubits takes days), and NIfTI demo is excluded (synthetic CNN-only data). Cervical can be run classical-only via `configs/eanm_abstract/cervical.yaml`.
 
 ---
 
@@ -735,7 +717,7 @@ CI runs on Python 3.10–3.12 via GitHub Actions.
 - Papp L, Visvikis D, Sollini M, Shi K, Kirienko M. "The Dawn of Quantum AI in Nuclear Medicine: an EANM Perspective." *The EANM Journal*, 2026 (in revision). CLARYON is the official code repository for this manuscript (via [EANM-AI-QC](https://github.com/lpapp-muw/EANM-AI-QC)).
 - Moradi S, Brandner C, Spielvogel C, Krajnc D, Hillmich S, Wille R, Drexler W, Papp L. "Clinical data classification with noisy intermediate scale quantum computers." *Scientific Reports* 12, 1851 (2022). https://doi.org/10.1038/s41598-022-05971-9
 - Moradi S, Spielvogel C, Krajnc D, Brandner C, Hillmich S, Wille R, Traub-Weidinger T, Li X, Hacker M, Drexler W, Papp L. "Error mitigation enables PET radiomic cancer characterization on quantum computers." *Eur J Nucl Med Mol Imaging* 50, 3826-3837 (2023). https://doi.org/10.1007/s00259-023-06362-6
-- Papp L, et al. "Quantum Convolutional Neural Networks for Predicting ISUP Grade risk in [68Ga]Ga-PSMA Primary Prostate Cancer Patients." Under revision.
+- Moradi S, et al. "Quantum Convolutional Neural Networks for Predicting ISUP Grade risk in [68Ga]Ga-PSMA Primary Prostate Cancer Patients." Under revision.
 - Huang H-Y, Broughton M, Mohseni M, Babbush R, Boixo S, Neven H, McClean JR. "Power of data in quantum machine learning." *Nature Communications* 12, 2631 (2021). https://doi.org/10.1038/s41467-021-22539-9
 - Papp L, Spielvogel CP, Grubmuller B, et al. "Supervised machine learning enables non-invasive lesion characterization in primary prostate cancer with [68Ga]Ga-PSMA-11 PET/MRI." *Eur J Nucl Med Mol Imaging* 48, 1795-1805 (2021). https://doi.org/10.1007/s00259-020-05140-y
 

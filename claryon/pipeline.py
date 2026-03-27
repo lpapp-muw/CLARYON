@@ -172,25 +172,17 @@ def stage_load_data(config: ClaryonConfig, state: PipelineState, **kwargs: Any) 
             ds_imaging = nifti_result.get("all") or nifti_result.get("train")
 
         if ds_imaging is not None:
+            ds_imaging.data_source = "imaging"
             logger.info("Loaded imaging: %d samples, shape %s", ds_imaging.n_samples, ds_imaging.X.shape)
 
-    # Combine data sources
+    # Select data source (no fusion — tabular and imaging require separate configs)
     if ds_tabular is not None and ds_imaging is not None:
-        # Early fusion: concatenate features
-        if ds_tabular.n_samples == ds_imaging.n_samples:
-            fused_X = np.concatenate([ds_tabular.X, ds_imaging.X], axis=1)
-            fused_names = (ds_tabular.feature_names or [f"tab_{i}" for i in range(ds_tabular.n_features)]) + \
-                          [f"img_{i}" for i in range(ds_imaging.n_features)]
-            state.dataset = Dataset(
-                X=fused_X, y=ds_tabular.y, keys=ds_tabular.keys,
-                feature_names=fused_names, task_type=ds_tabular.task_type,
-                label_mapper=ds_tabular.label_mapper,
-            )
-            logger.info("Early fusion: %d samples × %d features", state.dataset.n_samples, state.dataset.n_features)
-        else:
-            logger.warning("Sample count mismatch (tabular=%d, imaging=%d) — using tabular only",
-                           ds_tabular.n_samples, ds_imaging.n_samples)
-            state.dataset = ds_tabular
+        logger.warning(
+            "Both tabular and imaging data configured. Tabular and imaging "
+            "pipelines are separate — use tabular for classical/quantum tabular "
+            "models, imaging for CNN models. Using tabular as primary dataset."
+        )
+        state.dataset = ds_tabular
     elif ds_tabular is not None:
         state.dataset = ds_tabular
     elif ds_imaging is not None:
@@ -313,12 +305,17 @@ def _preprocess_fold(
     feature_names: List[str],
     config: ClaryonConfig,
     model_type: str = "tabular",
+    skip_feature_selection: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, Any]:
     """Apply per-fold preprocessing: mRMR + optional z-score on training data.
 
     Z-score is applied only to classical (tabular) models. Quantum models
     skip z-score because amplitude encoding handles normalization, and
     z-score distorts quantum kernel geometry (HF-031).
+
+    Feature selection is skipped for imaging-origin quantum models: the full
+    masked VOI vector is passed directly to amplitude encoding. Qubit count
+    is controlled by VOI size, not feature selection (HF-032).
 
     Args:
         X_train: Training features.
@@ -327,6 +324,8 @@ def _preprocess_fold(
         feature_names: Feature names.
         config: Experiment configuration.
         model_type: Model type ("tabular", "tabular_quantum", "imaging").
+        skip_feature_selection: If True, bypass mRMR and max_features entirely.
+            Used for imaging-origin data with quantum models.
 
     Returns:
         (X_train_preprocessed, X_test_preprocessed, PreprocessingState)
@@ -344,8 +343,13 @@ def _preprocess_fold(
         z_mean = np.zeros(X_train.shape[1])
         z_std = np.ones(X_train.shape[1])
 
-    # Step 2: mRMR feature selection (applies to ALL tabular models)
-    if prep_cfg.feature_selection:
+    # Step 2: mRMR feature selection (skip for imaging-origin quantum — HF-032)
+    if skip_feature_selection:
+        selected_idx = list(range(X_train.shape[1]))
+        selected_names = feature_names[:X_train.shape[1]]
+        logger.info("  Imaging-origin data: skipping feature selection for quantum model "
+                     "(raw masked voxels → amplitude encoding)")
+    elif prep_cfg.feature_selection:
         selected_idx, selected_names = mrmr_select(
             X_train, y_train, feature_names,
             spearman_threshold=prep_cfg.spearman_threshold,
@@ -361,11 +365,13 @@ def _preprocess_fold(
 
     # Step 3: Apply z-score only to classical models (HF-031)
     if model_type == "tabular_quantum":
-        # Quantum: mRMR only, NO z-score
-        # Amplitude encoding handles normalization
+        # Quantum: NO z-score, amplitude encoding handles normalization
         X_train_out = X_train_sel
         X_test_out = X_test_sel
-        preprocessing_applied = "mrmr_only"
+        if skip_feature_selection:
+            preprocessing_applied = "none"
+        else:
+            preprocessing_applied = "mrmr_only"
         logger.info("  Quantum model: skipping z-score (amplitude encoding normalizes)")
     else:
         # Classical: z-score + mRMR
@@ -441,6 +447,14 @@ def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
                 model_name, model_entry.type,
             )
             continue
+        if model_entry.type == "tabular" and ds.data_source == "imaging":
+            logger.error(
+                "SKIPPING %s: classical tabular models cannot run on NIfTI imaging data. "
+                "Use CNN models (type: imaging) or quantum models (type: tabular_quantum) "
+                "for imaging data.",
+                model_name,
+            )
+            continue
 
         try:
             model_cls = get("model", model_name)
@@ -472,9 +486,17 @@ def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
                     # Per-fold preprocessing for tabular data
                     preproc_state = None
                     if is_tabular and model_entry.type != "imaging":
+                        # Skip feature selection for imaging-origin quantum models:
+                        # quantum circuits operate on the full masked VOI vector,
+                        # qubit count is controlled by VOI size, not feature selection.
+                        skip_fs = (
+                            ds.data_source == "imaging"
+                            and model_entry.type == "tabular_quantum"
+                        )
                         X_train, X_test, preproc_state = _preprocess_fold(
                             X_train, X_test, y_train, feature_names, config,
                             model_type=model_entry.type,
+                            skip_feature_selection=skip_fs,
                         )
                         logger.info("  Preprocessed: %d → %d features",
                                     preproc_state.n_features_original,
