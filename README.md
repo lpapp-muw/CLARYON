@@ -218,15 +218,13 @@ experiment:
 | `exhaustive` | 500 | 0.002 | 2000 | Maximum effort |
 | `auto` | dataset-dependent | dataset-dependent | dataset-dependent | CLARYON analyzes your data and time budget, picks the best preset per model |
 
-Auto mode attempts to select the highest quality preset that fits your time budget:
+Auto mode uses `max_runtime_minutes` (default: 120) to select the highest quality preset that fits your time budget:
 
 ```yaml
 experiment:
   complexity: auto
   max_runtime_minutes: 60
 ```
-
-**Note**: Runtime estimates for quantum models are approximate and may underestimate actual wall time significantly. Auto mode does not enforce a hard timeout — once a preset is selected, the model runs to completion. For predictable runtimes, use an explicit preset (`medium`, `large`, etc.) instead of `auto`.
 
 Per-model override (expert users):
 
@@ -352,6 +350,7 @@ Quantum models use PennyLane's `default.qubit` simulator. Data is automatically 
 | `qnn` | Per-class Mottonen + Rot/CNOT layers, margin loss (PyTorch) | Moradi et al., 2023 |
 | `qcnn_muw` | Amplitude embedding, conv/pool layers, ArbitraryUnitary, Projector | Papp et al., under revision |
 | `qcnn_alt` | Alternative conv/pool architecture, Projector | MedUni Wien design |
+| `hybrid` | Quantum-classical hybrid (stub) | -- |
 
 Practical qubit limit: <=20 recommended, <=30 possible. Resource warnings are logged automatically. CLARYON estimates memory and runtime before training and skips models that would exceed available resources.
 
@@ -374,130 +373,6 @@ The analysis compares the quantum kernel against linear, RBF, and polynomial cla
 
 ---
 
-## Quantum Best Practices
-
-Quantum model performance on real medical data depends critically on how features are prepared for amplitude encoding. These guidelines are based on empirical benchmarks across multiple datasets.
-
-### Feature count and qubit scaling
-
-The number of qubits is determined by the feature count after mRMR selection, rounded up to the next power of 2. Features beyond that power of 2 become zero-padded entries that dilute the quantum state.
-
-| Features after mRMR | Padded to | Qubits | Zero-pad waste | Recommendation |
-|---|---|---|---|---|
-| 4 | 4 | 2 | 0% | Ideal |
-| 5-8 | 8 | 3 | 0-37% | Good |
-| 9-16 | 16 | 4 | 0-44% | Acceptable |
-| 17-32 | 32 | 5 | 0-47% | Slow on simulator, check runtime first |
-| 33-64 | 64 | 6 | up to 48% | Not recommended on single CPU |
-
-**Use `max_features` to control qubit count explicitly:**
-
-```yaml
-preprocessing:
-  feature_selection: true
-  spearman_threshold: 0.8
-  max_features: 8            # forces 3 qubits (8 → pad to 8 → 3 qubits)
-```
-
-This is the single most important parameter for quantum model performance — it directly controls the Hilbert space dimensionality.
-
-### Why fewer qubits often improves quantum results
-
-Amplitude encoding maps the feature vector to a quantum state on the unit hypersphere in 2^n dimensions. With zero-padded features, the data occupies a low-dimensional submanifold, making it harder for quantum kernels to find discriminative structure. Reducing features to match the padded dimension (e.g., 8 features → 8 amplitudes → 3 qubits) eliminates waste and concentrates the signal.
-
-Observed results:
-- 306 features → 40 after mRMR → 64 padded (6 qubits, 37% waste): quantum BACC ~0.50 (chance level)
-- 49 features → 49 (no reduction) → 64 padded (6 qubits, 23% waste): quantum BACC ~0.52
-- 30 features → 13 after mRMR → 16 padded (4 qubits, 19% waste): quantum BACC 0.76
-- 4 features → 4 (iris, 2 qubits, 0% waste): quantum BACC 1.00
-
-### mRMR may not reduce enough
-
-mRMR removes correlated features, but if features are uncorrelated (common in clinical/demographic data), mRMR may remove nothing. In the HCC dataset (49 features), mRMR retained all 49. Always set `max_features` when running quantum models on high-dimensional data.
-
-### Recommended configurations
-
-**For quantum-focused experiments:**
-
-```yaml
-preprocessing:
-  feature_selection: true
-  spearman_threshold: 0.8
-  max_features: 8            # 3 qubits — sweet spot for simulator
-```
-
-**For classical-quantum comparison (same features for both):**
-
-```yaml
-preprocessing:
-  feature_selection: true
-  spearman_threshold: 0.8
-  max_features: 8
-```
-
-**For classical-only experiments (no qubit constraint):**
-
-```yaml
-preprocessing:
-  feature_selection: true
-  spearman_threshold: 0.8
-  # no max_features — let mRMR select freely
-```
-
-### Model-specific notes
-
-- **sq_kernel_svm**: Returns BACC ~0.500 on balanced datasets. Known limitation of the linear prediction formula. Use `kernel_svm` instead (wraps quantum kernel in SVC).
-- **qdc_swap**: Uses 2n+1 qubits (n = data qubits). At 3 data qubits = 7 total — feasible but slow. At 5+ data qubits (11+ total), infeasible on simulator. Exclude from configs with >16 features after mRMR.
-- **qcnn_muw / qcnn_alt**: Need sufficient epochs to converge. Use `complexity: medium` (100 epochs) minimum.
-- **quantum_gp**: Generally the most robust quantum model on real data.
-
----
-
-## Running Benchmarks
-
-CLARYON ships with benchmark configurations for the included medical datasets. The recommended benchmark uses `max_features: 8` (3 qubits) to keep quantum models in their optimal operating range.
-
-### Quick start
-
-```bash
-# Run all 3 medical datasets (wisconsin, hcc, psma11)
-bash scripts/run_benchmark.sh
-
-# Run a single dataset
-bash scripts/run_benchmark.sh wisconsin
-
-# Run in a screen session (recommended for long runs)
-screen -S benchmark bash scripts/run_benchmark.sh
-# Detach: Ctrl+A then D
-# Reattach: screen -r benchmark
-```
-
-### Estimated runtimes
-
-With `complexity: medium`, 5-fold CV, 3 seeds, single CPU core:
-
-| Dataset | Samples | Qubits | Classical (4 models) | Quantum (8 models) | Total |
-|---|---|---|---|---|---|
-| Wisconsin Breast Cancer | 569 | 3 | < 1 min | 2-4 hours | ~4 hours |
-| HCC Survival | 165 | 3 | < 1 min | 1-3 hours | ~3 hours |
-| PSMA-11 Radiomics | 133 | 3 | < 1 min | 1-3 hours | ~3 hours |
-| All three | — | 3 | < 3 min | 4-10 hours | ~10 hours |
-
-### Results
-
-After completion, results are in `Results/eanm_abstract/<dataset>_q8/`:
-
-```
-Results/eanm_abstract/wisconsin_q8/
-├── metrics_summary.csv       # model;bacc;bacc_std;auc;auc_std;...
-├── report.md
-├── methods.tex
-├── results.tex
-└── <model>/seed_<s>/fold_<f>/Predictions.csv
-```
-
----
-
 ## Inference on New Data
 
 After training, use saved models and preprocessing state to predict on new patients:
@@ -515,29 +390,22 @@ The inference command loads the saved model and preprocessing state (z-score coe
 
 ## Runtime Expectations
 
-### Per-fold runtimes (observed)
+### Per-fold runtimes
 
-Measured runtimes for `complexity: medium` on a single CPU core (PennyLane `default.qubit` simulator):
+Approximate runtimes for `complexity: medium` on a single CPU core:
 
-| Model | ~150 samples, 4 qubits | ~570 samples, 4 qubits | ~860 samples, 5 qubits |
+| Model | 150 samples, 4 features | 500 samples, 30 features | 1000 samples, 100 features |
 |---|---|---|---|
-| XGBoost | < 1 second | < 1 second | < 1 second |
-| LightGBM | < 1 second | < 1 second | < 1 second |
-| CatBoost | < 1 second | 1 second | 2 seconds |
-| MLP | < 1 second | 1 second | 2 seconds |
-| kernel_svm | < 1 minute | 3 minutes | 15 minutes |
-| sq_kernel_svm | 1 minute | 11 minutes | 45 minutes |
-| qdc_hadamard | 1 minute | 10 minutes | 80 minutes |
-| qdc_swap | 2 minutes | 20 minutes | **not feasible** (11 qubits) |
-| quantum_gp | 1 minute | 10 minutes | 40 minutes |
-| qnn | 3 minutes | 20 minutes | 1-2 hours |
-| qcnn_muw | 5 minutes | 30 minutes | 2-4 hours |
-| qcnn_alt | 5 minutes | 30 minutes | 2-4 hours |
+| XGBoost | 1 second | 5 seconds | 15 seconds |
+| LightGBM | 1 second | 3 seconds | 10 seconds |
+| CatBoost | 2 seconds | 10 seconds | 30 seconds |
+| MLP | 1 second | 5 seconds | 15 seconds |
+| kernel_svm (quantum) | 1 minute | 15 minutes | 2+ hours |
+| qcnn_muw (quantum) | 8 minutes | 1 hour | 5+ hours |
+| qnn (quantum) | 5 minutes | 45 minutes | 3+ hours |
 | cnn_3d | 2 minutes | 10 minutes | 30 minutes (GPU recommended) |
 
-Times are per fold. Multiply by n_folds x n_seeds for total (e.g., 5 folds x 3 seeds = 15 folds). GPU accelerates CNNs only; quantum models run on CPU.
-
-**Critical scaling factor**: `qdc_swap` uses 2n+1 qubits (n = data qubits). For datasets where mRMR selects >16 features (5+ data qubits), qdc_swap becomes infeasible on a simulator. Exclude it or reduce features with `preprocessing.max_features`.
+Times are per fold. Multiply by n_folds x n_seeds for total. GPU accelerates CNNs only; quantum models run on CPU (PennyLane simulator).
 
 ### Total experiment estimates
 
@@ -670,8 +538,6 @@ claryon/
 ├── explainability/           # SHAP, LIME, GradCAM, plots
 ├── evaluation/               # Metrics, Friedman/Nemenyi, GDQ, figures
 └── reporting/                # Structured LaTeX, Markdown, method descriptions, BibTeX
-scripts/
-└── run_benchmark.sh          # Run benchmarks on included datasets
 ```
 
 ---
