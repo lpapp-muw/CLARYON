@@ -16,6 +16,7 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 - [Supported Data Types](#supported-data-types)
   - [Tabular Data](#tabular-data)
   - [NIfTI Medical Imaging](#nifti-medical-imaging)
+  - [Data Fusion](#data-fusion)
 - [Models](#models)
   - [Model–Data Compatibility](#modeldata-compatibility)
   - [Classical Models](#classical-models)
@@ -130,16 +131,33 @@ data:
 
 | Model type | What happens to NIfTI data | Use case |
 |---|---|---|
-| `imaging` | Raw 3D tensors → PyTorch CNN | Classical deep learning |
+| `imaging` | Raw 3D tensors → PyTorch CNN | Classical deep learning on volumes |
 | `tabular_quantum` | Volumes masked, flattened → amplitude encoding → quantum circuit | Quantum ML on imaging |
+| `tabular` | Volumes masked, flattened → classical ML on voxel features | Classical ML on flattened volumes |
 
-Classical tabular models (`xgboost`, `lightgbm`, etc.) cannot run on NIfTI data directly. Use CNN models for classical deep learning or quantum models for quantum imaging. For classical ML on imaging features, extract radiomics first and use the tabular pipeline.
+**Hard requirement**: All NIfTI volumes within a cohort must have the same dimensions (e.g., all 32×32×32). If volumes differ in size, CLARYON zero-pads smaller volumes to match the largest, and logs a warning. Consistent dimensions ensure spatial correspondence across patients.
 
-**Critical for quantum imaging**: Use small VOIs (lesion-centered), not whole-body scans. Feature selection (mRMR) is automatically skipped for NIfTI quantum models — the full masked voxel vector is amplitude-encoded. The user controls qubit count by choosing an appropriate VOI size.
+**Qubit count**: For quantum models, amplitude encoding requires log2(n_voxels) qubits (rounded up to next power of 2). CLARYON logs the qubit count when loading NIfTI data. Example: 32×32×32 = 32768 voxels → 15 qubits.
+
+### Data Fusion
+
+Combine tabular features with imaging data. Both sources are loaded and concatenated (early fusion):
+
+```yaml
+data:
+  tabular:
+    path: data/radiomics.csv
+    label_col: label
+    sep: ";"
+  imaging:
+    path: data/pet_volumes
+    format: nifti
+    mask_pattern: "*mask*"
+```
 
 ### Radiomics Extraction
 
-CLARYON can extract radiomic features from NIfTI volumes using pyradiomics (IBSI-compliant). The extracted features become a tabular CSV that can be used with any tabular or quantum model:
+CLARYON can extract radiomic features from NIfTI volumes using pyradiomics (IBSI-compliant):
 
 ```yaml
 data:
@@ -158,14 +176,14 @@ CLARYON has 18 registered models plus an ensemble aggregator.
 
 | Model | Type | Tabular | NIfTI (flattened) | NIfTI (3D volumes) |
 |---|---|---|---|---|
-| XGBoost | `tabular` | yes | — | — |
-| LightGBM | `tabular` | yes | — | — |
-| CatBoost | `tabular` | yes | — | — |
-| MLP | `tabular` | yes | — | — |
-| TabPFN | `tabular` | yes | — | — |
-| TabM | `tabular` | yes | — | — |
-| RealMLP | `tabular` | yes | — | — |
-| ModernNCA | `tabular` | yes | — | — |
+| XGBoost | `tabular` | yes | yes | — |
+| LightGBM | `tabular` | yes | yes | — |
+| CatBoost | `tabular` | yes | yes | — |
+| MLP | `tabular` | yes | yes | — |
+| TabPFN | `tabular` | yes | yes | — |
+| TabM | `tabular` | yes | yes | — |
+| RealMLP | `tabular` | yes | yes | — |
+| ModernNCA | `tabular` | yes | yes | — |
 | CNN 2D | `imaging` | — | — | yes |
 | CNN 3D | `imaging` | — | — | yes |
 | Kernel SVM | `tabular_quantum` | yes | yes | — |
@@ -176,7 +194,7 @@ CLARYON has 18 registered models plus an ensemble aggregator.
 | QNN | `tabular_quantum` | yes | yes | — |
 | QCNN-MUW | `tabular_quantum` | yes | yes | — |
 | QCNN-ALT | `tabular_quantum` | yes | yes | — |
-| Ensemble | `tabular` | yes | — | — |
+| Ensemble | `tabular` | yes | yes | — |
 
 "NIfTI (flattened)" means volumes are flattened to feature vectors, then processed like tabular data — including amplitude encoding for quantum models.
 
@@ -336,7 +354,7 @@ evaluation:
 
 ### Quantum QCNN on PET VOIs
 
-The core nuclear medicine quantum workflow (Moradi et al., 2022, 2023; under revision). NIfTI volumes are loaded, masked to isolate the lesion VOI, flattened to a feature vector, then amplitude-encoded for quantum circuits. Feature selection (mRMR) is automatically skipped — the full masked voxel vector is used.
+The core nuclear medicine quantum workflow (Moradi et al., 2022, 2023; under revision). NIfTI volumes are loaded, masked (voxels outside the mask are set to zero), flattened to a feature vector, then amplitude-encoded for quantum circuits.
 
 ```yaml
 experiment:
@@ -346,9 +364,13 @@ experiment:
 
 data:
   imaging:
-    path: data/pet_voi              # small VOIs around lesions
+    path: data/pet_voi
     format: nifti
     mask_pattern: "*mask*"
+
+preprocessing:
+  feature_selection: true
+  max_features: 8             # optional: reduces qubit count for tabular radiomics
 
 cv:
   strategy: kfold
@@ -360,16 +382,21 @@ models:
     type: tabular_quantum           # flattened VOI → amplitude encoding
   - name: qcnn_muw
     type: tabular_quantum
+  - name: xgboost
+    type: tabular                   # classical comparison on same features
 ```
 
-**Important**: The user controls qubit count by choosing VOI size — smaller VOIs = fewer voxels = fewer qubits. Feature selection does not apply; the quantum circuit sees the full spatial information within the mask.
+**Hard requirement**: All NIfTI volumes in a cohort must have the same dimensions. The mask can vary per patient (different organ/lesion shapes), but the volume grid must be identical (e.g., all 32×32×32). CLARYON multiplies each volume by its mask (zeros outside the mask) and flattens the full grid.
 
-| VOI size | Masked voxels (approx) | Qubits | Feasibility |
+**Qubit count** is determined by the total voxel count of the volume (not the mask), rounded up to the next power of 2:
+
+| VOI dimensions | Total voxels | Qubits | Notes |
 |---|---|---|---|
-| 4×4×4 | ~64 | 6 | Minutes per fold |
-| 8×8×8 | ~512 | 9 | Slow on simulator |
-| 16×16×16 | ~4096 | 12 | At simulator limit |
-| Larger | >4096 | 13+ | Not feasible on CPU simulator |
+| 4×4×4 | 64 | 6 | Fast, ideal for testing |
+| 8×8×8 | 512 | 9 | Moderate runtime |
+| 16×16×16 | 4096 | 12 | Hours per fold |
+| 32×32×32 | 32768 | 15 | Feasible with high compute (used in Moradi et al., under revision) |
+| 64×64×64 | 262144 | 18 | Very demanding, cluster recommended |
 
 ---
 
@@ -432,7 +459,7 @@ preprocessing:
   max_features: 8            # 3 qubits — best for simulator
 ```
 
-**For NIfTI imaging**, qubit count is controlled by VOI size. Feature selection is automatically skipped — the full masked voxel vector is amplitude-encoded.
+**For NIfTI imaging**, qubit count is determined by the volume dimensions (total voxel count). The user controls this by choosing an appropriate VOI size during data preparation. mRMR feature selection can optionally further reduce the feature count.
 
 ### Why fewer qubits often improves results
 

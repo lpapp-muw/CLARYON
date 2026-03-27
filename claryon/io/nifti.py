@@ -159,8 +159,31 @@ def _build_arrays(
         y_list.append(_parse_label(pet_path))
         ids.append(_case_id(pet_path))
 
-    # Pad to uniform length
+    # Pad to uniform length (determined by largest volume in cohort)
     max_len = max(v.size for v in X_list) if X_list else 0
+    sizes = [v.size for v in X_list]
+    min_len = min(sizes) if sizes else 0
+
+    if min_len < max_len:
+        import math
+        n_padded = sum(1 for s in sizes if s < max_len)
+        logger.warning(
+            "NIfTI volumes have different flattened lengths (min=%d, max=%d). "
+            "%d/%d volumes will be zero-padded to %d. For best results, ensure "
+            "all volumes in a cohort have identical dimensions.",
+            min_len, max_len, n_padded, len(sizes), max_len,
+        )
+
+    # Log qubit requirements for quantum models
+    import math
+    next_pow2 = 1 << int(math.ceil(math.log2(max(max_len, 1))))
+    n_qubits = int(math.ceil(math.log2(max(max_len, 1))))
+    logger.info(
+        "NIfTI cohort: %d samples, %d voxels per sample (flattened). "
+        "Amplitude encoding will require %d qubits (padded to %d).",
+        len(X_list), max_len, n_qubits, next_pow2,
+    )
+
     X = np.zeros((len(X_list), max_len), dtype=np.float64)
     for i, v in enumerate(X_list):
         X[i, : v.size] = v
