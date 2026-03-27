@@ -1,4 +1,4 @@
-"""FDB/LDB legacy format loader — DEBI-NN compatible format → Dataset.
+"""FDB/LDB legacy format loader — radiomics compatible format → Dataset.
 
 Ported from [E] build_tabular_from_fdb_ldb.py and [B] fold_generator.py.
 """

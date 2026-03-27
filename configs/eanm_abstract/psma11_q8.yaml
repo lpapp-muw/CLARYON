@@ -8,7 +8,7 @@ data:
   tabular:
     path: datasets/psma11/train.csv
     label_col: label
-    sep: ","
+    sep: ";"
 
 preprocessing:
   zscore: true
