@@ -238,14 +238,6 @@ models:
       {{param_text}}
     cite: "Hollmann2023"
 
-  debinn:
-    short: "DEBI-NN"
-    text: >
-      DEBI-NN (Decision Explanation by Bayesian Inference Neural
-      Network) is a C++ neural network invoked as an external
-      subprocess. It reads structured settings files and produces
-      predictions in a standardized CSV format.
-      {{param_text}}
 
   cnn_2d:
     short: "2D CNN"

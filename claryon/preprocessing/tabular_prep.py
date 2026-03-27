@@ -1,6 +1,6 @@
 """Tabular preprocessing — imputation, one-hot encoding, quantile normalization.
 
-Ported from [B] preprocess_benchmark.py. Generalized beyond DEBI-NN format.
+Ported from benchmark preprocessing. Generalized for CLARYON pipeline.
 """
 from __future__ import annotations
 

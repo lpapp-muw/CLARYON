@@ -7,7 +7,7 @@ Deterministic: same seed → same data every time.
 Fixtures generated:
   - Tabular: binary, multi-class, regression (train + test splits)
   - NIfTI: masked, unmasked, multi-label mask
-  - FDB/LDB: legacy DEBI-NN format
+  - FDB/LDB: legacy radiomics format
   - TIFF: synthetic with metadata sidecar
   - PyRadiomics: minimal config YAML
 """
@@ -175,7 +175,7 @@ def generate_nifti_multilabel() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════
-# FDB / LDB fixtures (legacy DEBI-NN format)
+# FDB / LDB fixtures (legacy radiomics format)
 # ═══════════════════════════════════════════════════════════════
 
 def generate_fdb_ldb() -> None:

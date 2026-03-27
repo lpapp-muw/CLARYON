@@ -20,7 +20,7 @@ import pandas as pd
 from sklearn.datasets import load_iris
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "demo_data"
+DATA_DIR = ROOT / "datasets"
 
 
 def prepare_iris() -> Path:
