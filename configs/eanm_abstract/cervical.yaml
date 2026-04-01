@@ -31,11 +31,7 @@ models:
     type: tabular
   - name: kernel_svm
     type: tabular_quantum
-  - name: sq_kernel_svm
-    type: tabular_quantum
   - name: qdc_hadamard
-    type: tabular_quantum
-  - name: qdc_swap
     type: tabular_quantum
   - name: quantum_gp
     type: tabular_quantum

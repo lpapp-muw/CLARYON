@@ -1,12 +1,12 @@
 experiment:
-  name: eanm_hcc_q8
+  name: eanm_psma11_q8_large
   seed: 42
-  results_dir: Results/eanm_abstract/hcc_q8
+  results_dir: Results/eanm_abstract/psma11_q8_large
   complexity: medium
 
 data:
   tabular:
-    path: datasets/hcc-survival/train.csv
+    path: datasets/psma11/train.csv
     label_col: label
     sep: ";"
 
@@ -38,10 +38,17 @@ models:
     type: tabular_quantum
   - name: qnn
     type: tabular_quantum
+    params:
+      num_layers: 6
+      epochs: 300
+      lr: 0.003
+      margin: 0.1
   - name: qcnn_muw
     type: tabular_quantum
+    preset: large
   - name: qcnn_alt
     type: tabular_quantum
+    preset: large
   - name: ensemble
     type: tabular
 

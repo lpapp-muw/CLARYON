@@ -1,7 +1,5 @@
 # CLARYON
 
-**The EANM AI Committee's git repository to support Nuclear Medicine research**
-
 **CLassical-quantum AI for Reproducible Explainable OpeN-source medicine**
 
 CLARYON is a YAML-driven machine learning framework that unifies classical, quantum, and deep learning models under a single reproducible pipeline. It supports tabular data and NIfTI medical images — with built-in preprocessing, explainability, statistical comparison, and publication-ready LaTeX reporting.
@@ -14,19 +12,15 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 
 - [Installation](#installation)
 - [Supported Data Types](#supported-data-types)
-  - [Tabular Data](#tabular-data)
-  - [NIfTI Medical Imaging](#nifti-medical-imaging)
 - [Models](#models)
-  - [Model–Data Compatibility](#modeldata-compatibility)
-  - [Classical Models](#classical-models)
-  - [Quantum Models](#quantum-models)
-  - [Geometric Difference Score](#geometric-difference-score)
+- [Quantum Encoding Strategies](#quantum-encoding-strategies)
 - [Quickstart: Tabular Workflow](#quickstart-tabular-workflow)
 - [Quickstart: NIfTI Imaging Workflow](#quickstart-nifti-imaging-workflow)
 - [Preprocessing](#preprocessing)
 - [Quantum Best Practices](#quantum-best-practices)
 - [Model Complexity Presets](#model-complexity-presets)
 - [Running Benchmarks](#running-benchmarks)
+- [Benchmark Results](#benchmark-results)
 - [Runtime Expectations](#runtime-expectations)
 - [Explainability](#explainability)
 - [Reporting](#reporting)
@@ -114,8 +108,6 @@ data:
 
 NIfTI volumes (.nii, .nii.gz) with optional binary masks. CLARYON pairs images and masks by filename pattern matching.
 
-Typical use case: PET/CT or PET/MR volumes with lesion masks. The mask isolates the volume of interest (VOI) — only masked voxels are used.
-
 Config:
 ```yaml
 data:
@@ -130,13 +122,13 @@ data:
 
 | Model type | What happens to NIfTI data | Use case |
 |---|---|---|
-| `imaging` | Raw 3D tensors → PyTorch CNN | Classical deep learning on volumes |
-| `tabular_quantum` | Volumes masked, flattened → amplitude encoding → quantum circuit | Quantum ML on imaging |
-| `tabular` | Volumes masked, flattened → classical ML on voxel features | Classical ML on flattened volumes |
+| `imaging` | Raw 3D tensors to PyTorch CNN | Classical deep learning on volumes |
+| `tabular_quantum` | Volumes masked, flattened, amplitude-encoded | Quantum ML on imaging |
+| `tabular` | Volumes masked, flattened, classical ML on voxel features | Classical ML on flattened volumes |
 
-**Hard requirement**: All NIfTI volumes within a cohort must have the same dimensions (e.g., all 32×32×32). If volumes differ in size, CLARYON zero-pads smaller volumes to match the largest, and logs a warning. Consistent dimensions ensure spatial correspondence across patients.
+**Hard requirement**: All NIfTI volumes within a cohort must have the same dimensions (e.g., all 32x32x32). If volumes differ in size, CLARYON zero-pads smaller volumes to match the largest, and logs a warning.
 
-**Qubit count**: For quantum models, amplitude encoding requires log2(n_voxels) qubits (rounded up to next power of 2). CLARYON logs the qubit count when loading NIfTI data. Example: 32×32×32 = 32768 voxels → 15 qubits.
+**Qubit count**: For quantum models, amplitude encoding requires log2(n_voxels) qubits (rounded up to next power of 2). Example: 32x32x32 = 32768 voxels = 15 qubits.
 
 ### Radiomics Extraction
 
@@ -153,33 +145,33 @@ data:
 
 ## Models
 
-CLARYON has 18 registered models plus an ensemble aggregator.
+CLARYON has 16 registered models plus an ensemble aggregator.
 
-### Model–Data Compatibility
+### Model-Data Compatibility
 
 | Model | Type | Tabular | NIfTI (flattened) | NIfTI (3D volumes) |
 |---|---|---|---|---|
-| XGBoost | `tabular` | yes | yes | — |
-| LightGBM | `tabular` | yes | yes | — |
-| CatBoost | `tabular` | yes | yes | — |
-| MLP | `tabular` | yes | yes | — |
-| TabPFN | `tabular` | yes | yes | — |
-| TabM | `tabular` | yes | yes | — |
-| RealMLP | `tabular` | yes | yes | — |
-| ModernNCA | `tabular` | yes | yes | — |
-| CNN 2D | `imaging` | — | — | yes |
-| CNN 3D | `imaging` | — | — | yes |
-| Kernel SVM | `tabular_quantum` | yes | yes | — |
-| Simplified Kernel SVM | `tabular_quantum` | yes | yes | — |
-| QDC Hadamard | `tabular_quantum` | yes | yes | — |
-| QDC SWAP | `tabular_quantum` | yes | yes | — |
-| Quantum GP | `tabular_quantum` | yes | yes | — |
-| QNN | `tabular_quantum` | yes | yes | — |
-| QCNN-MUW | `tabular_quantum` | yes | yes | — |
-| QCNN-ALT | `tabular_quantum` | yes | yes | — |
-| Ensemble | `tabular` | yes | yes | — |
+| XGBoost | `tabular` | yes | yes | - |
+| LightGBM | `tabular` | yes | yes | - |
+| CatBoost | `tabular` | yes | yes | - |
+| MLP | `tabular` | yes | yes | - |
+| TabPFN | `tabular` | yes | yes | - |
+| TabM | `tabular` | yes | yes | - |
+| RealMLP | `tabular` | yes | yes | - |
+| ModernNCA | `tabular` | yes | yes | - |
+| CNN 2D | `imaging` | - | - | yes |
+| CNN 3D | `imaging` | - | - | yes |
+| **Angle PQK SVM** | **`tabular`** | **yes** | - | - |
+| Projected Kernel SVM | `tabular_quantum` | yes | yes | - |
+| Kernel SVM | `tabular_quantum` | yes | yes | - |
+| QDC Hadamard | `tabular_quantum` | yes | yes | - |
+| Quantum GP | `tabular_quantum` | yes | yes | - |
+| QNN | `tabular_quantum` | yes | yes | - |
+| QCNN-MUW | `tabular_quantum` | yes | yes | - |
+| QCNN-ALT | `tabular_quantum` | yes | yes | - |
+| Ensemble | `tabular` | yes | yes | - |
 
-"NIfTI (flattened)" means volumes are flattened to feature vectors, then processed like tabular data — including amplitude encoding for quantum models.
+Note: `angle_pqk_svm` uses `type: tabular` because it handles quantum encoding internally (angle encoding, not amplitude). It receives z-scored features from the pipeline.
 
 ### Classical Models
 
@@ -198,22 +190,31 @@ CLARYON has 18 registered models plus an ensemble aggregator.
 
 ### Quantum Models
 
-All quantum models use PennyLane's `default.qubit` simulator. Data is amplitude-encoded: padded to 2^n and L2-normalized. Qubit count = log2(padded feature count).
+CLARYON provides two families of quantum models, distinguished by their encoding strategy:
 
-| Model | Circuit design | Reference |
-|---|---|---|
-| `kernel_svm` | Amplitude embedding → Projector kernel → SVC | Havlicek et al., 2019 |
-| `sq_kernel_svm` | Mottonen + adjoint Mottonen → Projector → linear prediction | Moradi et al., 2022 |
-| `qdc_hadamard` | Ancilla + controlled Mottonen + Hadamard test → class-max similarity | Moradi et al., 2022 |
-| `qdc_swap` | Two registers + CSWAP + ancilla → class-max similarity (uses 2n+1 qubits) | Moradi et al., 2022 |
-| `quantum_gp` | Mottonen kernel → full GP posterior → sigmoid classification | Moradi et al., 2023 |
-| `qnn` | Per-class Mottonen + Rot/CNOT layers → margin loss (PyTorch) | Moradi et al., 2023 |
-| `qcnn_muw` | Amplitude embedding → conv/pool layers → ArbitraryUnitary → Projector | Moradi et al., under revision |
-| `qcnn_alt` | Alternative conv/pool architecture → Projector | MedUni Wien design |
+**Angle-encoded models** (recommended for tabular radiomic data):
+
+| Model | Circuit design | Encoding | Reference |
+|---|---|---|---|
+| `angle_pqk_svm` | AngleEmbedding, Pauli measurement, RBF kernel, SVC | Angle (1 qubit/feature) | Huang et al., 2021; Shaydulin and Wild, 2022 |
+
+**Amplitude-encoded models** (for NIfTI imaging, and for comparative evaluation on tabular data):
+
+| Model | Circuit design | Encoding | Reference |
+|---|---|---|---|
+| `projected_kernel_svm` | AmplitudeEmbedding, Pauli measurement, RBF, SVC | Amplitude | Huang et al., 2021 |
+| `kernel_svm` | AmplitudeEmbedding, Projector (fidelity) kernel, SVC | Amplitude | Havlicek et al., 2019 |
+| `qdc_hadamard` | Ancilla + controlled Mottonen + Hadamard test | Amplitude | Moradi et al., 2022 |
+| `quantum_gp` | Mottonen kernel, full GP posterior, sigmoid classification | Amplitude | Moradi et al., 2023 |
+| `qnn` | Per-class Mottonen + Rot/CNOT layers, margin loss | Amplitude | Moradi et al., 2023 |
+| `qcnn_muw` | Amplitude embedding, conv/pool layers, ArbitraryUnitary | Amplitude | Moradi et al., under revision |
+| `qcnn_alt` | Alternative conv/pool architecture | Amplitude | MedUni Wien design |
+
+For tabular radiomic datasets, the angle-encoded `angle_pqk_svm` substantially outperforms amplitude-encoded quantum models (see [Benchmark Results](#benchmark-results)). Amplitude-encoded models remain available for comparative evaluation and for NIfTI imaging workflows where amplitude encoding is the only viable option (angle encoding would require one qubit per voxel, which is infeasible for typical VOI sizes).
 
 ### Geometric Difference Score
 
-The GDQ score (Huang et al., 2021) quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels. GDQ > 1.0 suggests potential quantum advantage.
+The GDQ score (Huang et al., 2021) quantifies whether a quantum kernel provides a structurally different similarity measure from classical kernels.
 
 ```python
 from claryon.evaluation.geometric_difference import quantum_advantage_analysis
@@ -223,7 +224,33 @@ print(analysis["recommendation"])   # classical_sufficient / quantum_advantage_l
 print(analysis["g_CQ"])             # geometric difference per classical kernel
 ```
 
-Demonstrated in notebook `03_quantum_models.ipynb`.
+Note: GDQ evaluates fidelity (amplitude-encoded) kernels only. It does not apply to projected quantum kernels or training-based models (QNN, QCNN).
+
+---
+
+## Quantum Encoding Strategies
+
+The choice of quantum encoding has a larger impact on performance than the choice of quantum model.
+
+### Angle Encoding (recommended for tabular data)
+
+Each feature is mapped to a dedicated qubit via RY(bandwidth * x_i). No L2 normalization, no information loss. Z-score standardization is applied before encoding (unlike amplitude encoding).
+
+- Qubits needed: 1 per feature (e.g., 8 features = 8 qubits)
+- Key hyperparameter: `bandwidth` (controls kernel sensitivity; default 0.5)
+- Used by: `angle_pqk_svm`
+
+### Amplitude Encoding (required for NIfTI, available for tabular)
+
+The feature vector is zero-padded to the next power of 2 and L2-normalized into a quantum state. Z-score is NOT applied (it degrades kernel geometry).
+
+- Qubits needed: log2(features) (e.g., 8 features = 3 qubits)
+- Used by: all `tabular_quantum` models
+- Required for NIfTI (angle encoding would need 32768 qubits for a 32x32x32 VOI)
+
+### Why angle encoding outperforms on tabular data
+
+Amplitude encoding's L2 normalization forces all data onto the unit hypersphere, destroying per-feature magnitude information. This causes quantum kernels to concentrate: all pairwise similarities become nearly identical. On our radiomic datasets, amplitude-encoded models achieved BACC 0.63-0.76, while the same kernel measurement with angle encoding achieved BACC 0.68-0.96 (see [Benchmark Results](#benchmark-results)).
 
 ---
 
@@ -244,10 +271,10 @@ data:
     sep: ";"
 
 preprocessing:
-  zscore: true                # auto-skipped for quantum models
+  zscore: true
   feature_selection: true
   spearman_threshold: 0.8
-  max_features: 8             # recommended for quantum (3 qubits)
+  max_features: 8
 
 cv:
   strategy: kfold
@@ -259,10 +286,10 @@ models:
     type: tabular
   - name: lightgbm
     type: tabular
-  - name: kernel_svm
-    type: tabular_quantum
-  - name: qcnn_muw
-    type: tabular_quantum
+  - name: catboost
+    type: tabular
+  - name: angle_pqk_svm
+    type: tabular
 
 explainability:
   shap: true
@@ -285,17 +312,17 @@ claryon -v run -c configs/my_tabular.yaml
 Results:
 ```
 Results/my_experiment/
-├── metrics_summary.csv       # model;bacc;bacc_std;auc;auc_std;...
+├── metrics_summary.csv
 ├── report.md
-├── methods.tex               # structured prose for publication
-├── results.tex               # LaTeX table with mean ± std
-├── references_needed.txt     # BibTeX keys used
+├── methods.tex
+├── results.tex
+├── references_needed.txt
 ├── run_info.json
 ├── config_used.yaml
 ├── xgboost/seed_42/fold_0/
 │   ├── Predictions.csv
 │   └── preprocessing_state.json
-└── kernel_svm/seed_42/fold_0/
+└── angle_pqk_svm/seed_42/fold_0/
     ├── Predictions.csv
     └── preprocessing_state.json
 ```
@@ -337,7 +364,7 @@ evaluation:
 
 ### Quantum QCNN on PET VOIs
 
-The core nuclear medicine quantum workflow (Moradi et al., 2022, 2023; under revision). NIfTI volumes are loaded, masked (voxels outside the mask are set to zero), flattened to a feature vector, then amplitude-encoded for quantum circuits.
+NIfTI volumes are loaded, masked, flattened, then amplitude-encoded for quantum circuits. Note: NIfTI quantum models use amplitude encoding (the only viable option for volumetric data).
 
 ```yaml
 experiment:
@@ -351,10 +378,6 @@ data:
     format: nifti
     mask_pattern: "*mask*"
 
-preprocessing:
-  feature_selection: true
-  max_features: 8             # optional: reduces qubit count for tabular radiomics
-
 cv:
   strategy: kfold
   n_folds: 5
@@ -362,24 +385,22 @@ cv:
 
 models:
   - name: kernel_svm
-    type: tabular_quantum           # flattened VOI → amplitude encoding
+    type: tabular_quantum
   - name: qcnn_muw
     type: tabular_quantum
   - name: xgboost
-    type: tabular                   # classical comparison on same features
+    type: tabular
 ```
 
-**Hard requirement**: All NIfTI volumes in a cohort must have the same dimensions. The mask can vary per patient (different organ/lesion shapes), but the volume grid must be identical (e.g., all 32×32×32). CLARYON multiplies each volume by its mask (zeros outside the mask) and flattens the full grid.
-
-**Qubit count** is determined by the total voxel count of the volume (not the mask), rounded up to the next power of 2:
+**Qubit count** is determined by the total voxel count:
 
 | VOI dimensions | Total voxels | Qubits | Notes |
 |---|---|---|---|
-| 4×4×4 | 64 | 6 | Fast, ideal for testing |
-| 8×8×8 | 512 | 9 | Moderate runtime |
-| 16×16×16 | 4096 | 12 | Hours per fold |
-| 32×32×32 | 32768 | 15 | Feasible with high compute (used in Moradi et al., under revision) |
-| 64×64×64 | 262144 | 18 | Very demanding, cluster recommended |
+| 4x4x4 | 64 | 6 | Fast, ideal for testing |
+| 8x8x8 | 512 | 9 | Moderate runtime |
+| 16x16x16 | 4096 | 12 | Hours per fold |
+| 32x32x32 | 32768 | 15 | Feasible with high compute (Moradi et al., under revision) |
+| 64x64x64 | 262144 | 18 | Very demanding, cluster recommended |
 
 ---
 
@@ -389,7 +410,10 @@ All preprocessing runs inside the cross-validation loop, fitting on training dat
 
 ### Z-Score Normalization
 
-Features standardized to zero mean, unit variance. **Automatically skipped for quantum models** — amplitude encoding L2-normalizes the feature vector, and prior z-score distorts quantum kernel geometry by 30-40%.
+Features standardized to zero mean, unit variance.
+
+- **Automatically skipped for amplitude-encoded quantum models** (`type: tabular_quantum`). Amplitude encoding L2-normalizes the feature vector, and prior z-score distorts quantum kernel geometry by 30-40%.
+- **Applied normally for angle-encoded quantum models** (`angle_pqk_svm` uses `type: tabular`). Angle encoding benefits from normalized feature scales.
 
 ### mRMR Feature Selection
 
@@ -399,7 +423,7 @@ Features with Spearman correlation above threshold are clustered as redundant. M
 preprocessing:
   feature_selection: true
   spearman_threshold: 0.8
-  max_features: 8            # optional hard cap (critical for quantum)
+  max_features: 8
 ```
 
 **Warning**: mRMR only removes correlated features. If features are uncorrelated, mRMR removes nothing. Always set `max_features` for quantum models.
@@ -409,7 +433,7 @@ preprocessing:
 ```yaml
 binary_grouping:
   enabled: true
-  positive: [3, 4]            # e.g., ISUP grades 3+4 → high risk
+  positive: [3, 4]
   negative: [1, 2]
 ```
 
@@ -417,52 +441,47 @@ binary_grouping:
 
 ```yaml
 preprocessing:
-  image_normalization: per_image       # each volume to [0, 1]
-  # OR: cohort_global                  # global min/max from training set
+  image_normalization: per_image
 ```
 
 ---
 
 ## Quantum Best Practices
 
-### Feature count → qubit count
+### Angle-encoded models (tabular data)
 
-| Features after mRMR | Padded to | Qubits | Zero-pad waste | Recommendation |
-|---|---|---|---|---|
-| 4 | 4 | 2 | 0% | Ideal |
-| 5–8 | 8 | 3 | 0–37% | **Recommended sweet spot** |
-| 9–16 | 16 | 4 | 0–44% | Acceptable |
-| 17–32 | 32 | 5 | 0–47% | Slow on simulator |
-| 33–64 | 64 | 6+ | up to 48% | Not recommended on single CPU |
-
-**For tabular data**, control qubit count with `max_features`:
+Use `angle_pqk_svm` with `max_features: 8` (8 qubits). This is the recommended quantum model for tabular radiomic datasets.
 
 ```yaml
 preprocessing:
-  max_features: 8            # 3 qubits — best for simulator
+  max_features: 8
+models:
+  - name: angle_pqk_svm
+    type: tabular
 ```
 
-**For NIfTI imaging**, qubit count is determined by the volume dimensions (total voxel count). The user controls this by choosing an appropriate VOI size during data preparation. mRMR feature selection can optionally further reduce the feature count.
+The `bandwidth` parameter (default 0.5) controls kernel sensitivity. Lower values preserve finer distinctions between samples. A sweep across {0.5, 1.0, 2.0, 3.0, 5.0} showed optimal performance at bandwidth=0.5 on all three medical datasets, with monotonic degradation at higher values.
 
-### Why fewer qubits often improves results
+### Amplitude-encoded models (NIfTI imaging, comparative tabular)
 
-Amplitude encoding maps features to the unit hypersphere in 2^n dimensions. Zero-padded features dilute the signal. Observed on real medical data:
+For NIfTI data, amplitude encoding is the only option. For tabular data, amplitude-encoded models are available for comparative evaluation and for reproducing published results (Moradi et al., 2022, 2023).
 
-| Dataset | Features → Qubits | Zero-pad waste | Quantum BACC |
-|---|---|---|---|
-| Iris | 4 → 2 | 0% | 1.00 |
-| Wisconsin | 13 → 4 | 19% | 0.76 |
-| HCC (no max_features) | 49 → 6 | 23% | 0.52 |
-| PSMA (no max_features) | 40 → 6 | 37% | 0.50 |
+| Features after mRMR | Padded to | Qubits (amplitude) | Qubits (angle) | Recommendation |
+|---|---|---|---|---|
+| 4 | 4 | 2 | 4 | Either encoding works |
+| 5-8 | 8 | 3 | 5-8 | **Recommended sweet spot** |
+| 9-16 | 16 | 4 | 9-16 | Acceptable |
+| 17-32 | 32 | 5 | 17-32 | Slow on simulator |
+| 33-64 | 64 | 6+ | 33-64 | Not recommended on single CPU |
 
 ### Model-specific notes
 
 | Model | Note |
 |---|---|
-| `sq_kernel_svm` | Returns BACC ~0.500 on balanced datasets — known limitation. Use `kernel_svm` instead. |
-| `qdc_swap` | Uses 2n+1 qubits. At 5+ data qubits, infeasible on simulator. Exclude from large-feature configs. |
-| `qcnn_muw`, `qcnn_alt` | Need ≥100 epochs. Use `complexity: medium` minimum. |
-| `quantum_gp` | Most robust quantum model on real data. |
+| `angle_pqk_svm` | Recommended for tabular data. O(N) circuit evaluations. ~5-10 seconds per fold. |
+| `qcnn_muw`, `qcnn_alt` | Need >=100 epochs. Use `complexity: medium` minimum. |
+| `quantum_gp` | Most robust amplitude-encoded model. Provides uncertainty estimates. |
+| `kernel_svm` | O(N^2) fidelity kernel. Slow beyond ~500 samples. |
 
 ---
 
@@ -470,7 +489,7 @@ Amplitude encoding maps features to the unit hypersphere in 2^n dimensions. Zero
 
 ```yaml
 experiment:
-  complexity: medium          # recommended for most studies
+  complexity: medium
 ```
 
 | Preset | Quantum epochs | Quantum LR | Classical estimators | Use case |
@@ -492,14 +511,14 @@ models:
       n_estimators: 1000
 ```
 
-**Auto mode note**: Runtime estimates for quantum models may underestimate significantly. Use explicit presets for predictable runtimes.
-
 ---
 
 ## Running Benchmarks
 
+The primary entry point for benchmarking on the included medical datasets:
+
 ```bash
-# All 3 datasets
+# All 3 medical datasets (Wisconsin, HCC, PSMA-11)
 bash scripts/run_benchmark.sh
 
 # Single dataset
@@ -511,39 +530,71 @@ bash scripts/run_benchmark.sh
 # Detach: Ctrl+A then D | Reattach: screen -r benchmark
 ```
 
-Available: `wisconsin`, `hcc`, `psma11` (3 of the 6 included datasets). Uses `max_features: 8` (3 qubits). Iris is excluded (trivial smoke test), cervical cancer is excluded (858 samples at 5 qubits takes days), and NIfTI demo is excluded (synthetic CNN-only data). Cervical can be run classical-only via `configs/eanm_abstract/cervical.yaml`.
+This runs all classical and amplitude-encoded quantum models with `max_features: 8`, `complexity: medium`, 5-fold CV x 3 seeds. Configs: `configs/eanm_abstract/<dataset>_q8.yaml`.
+
+To benchmark the angle-encoded quantum model:
+
+```bash
+claryon -v run -c configs/eanm_abstract/angle_pqk_wisconsin_q8.yaml
+claryon -v run -c configs/eanm_abstract/angle_pqk_hcc_q8.yaml
+claryon -v run -c configs/eanm_abstract/angle_pqk_psma11_q8.yaml
+```
+
+For NIfTI CNN benchmarking:
+
+```bash
+claryon -v run -c configs/nifti_cnn.yaml
+```
+
+---
+
+## Benchmark Results
+
+All results: 5-fold stratified CV x 3 seeds = 15 folds. `max_features: 8`, `complexity: medium`.
+
+### Angle-encoded PQK SVM (recommended quantum model)
+
+| Dataset | Samples | Best Classical (BACC) | angle_pqk_svm (BACC) | Gap | AUC |
+|---|---|---|---|---|---|
+| **Wisconsin** | 569 | 0.963 (MLP) | **0.964** | **+0.001** | 0.995 |
+| **HCC Survival** | 165 | 0.688 (CatBoost) | **0.692** | **+0.004** | 0.773 |
+| **PSMA-11** | 133 | 0.771 (CatBoost) | 0.756 | -0.015 | 0.823 |
+| **Iris** | 150 | 0.995 (XGBoost) | **1.000** | +0.005 | 1.000 |
+
+Bandwidth = 0.5 (optimal; monotonic degradation at higher values). Runtime: ~5-10 seconds per fold.
+
+### Amplitude-encoded models (max_features=8, 3 qubits)
+
+For comparative evaluation. On tabular radiomic datasets, amplitude encoding may underperform due to L2 normalization destroying per-feature magnitude information.
+
+| Dataset | Best Classical (BACC) | Best Amplitude Quantum (BACC) | Model | Gap |
+|---|---|---|---|---|
+| Wisconsin (569) | 0.963 (MLP) | 0.757 (quantum_gp) | quantum_gp | -0.206 |
+| HCC (165) | 0.688 (CatBoost) | 0.632 (quantum_gp) | quantum_gp | -0.056 |
+| PSMA-11 (133) | 0.771 (CatBoost) | 0.634 (qdc_hadamard) | qdc_hadamard | -0.137 |
+
+### Key finding
+
+Angle encoding with projected quantum kernels closes approximately 90% of the quantum-classical performance gap on tabular radiomic data compared to amplitude-encoded quantum models. The improvement comes entirely from the encoding strategy: angle encoding preserves per-feature magnitude information that amplitude encoding destroys via L2 normalization.
 
 ---
 
 ## Runtime Expectations
 
-### Per-fold (observed, `complexity: medium`, single CPU)
+### Per-fold (observed, `complexity: medium`, single CPU, max_features=8)
 
-| Model | ~150 samples, 4q | ~570 samples, 4q | ~860 samples, 5q |
-|---|---|---|---|
-| Classical (XGB/LGB/CB/MLP) | < 1 sec | < 1 sec | 1–2 sec |
-| kernel_svm | < 1 min | 3 min | 15 min |
-| sq_kernel_svm | 1 min | 11 min | 45 min |
-| qdc_hadamard | 1 min | 10 min | 80 min |
-| qdc_swap | 2 min | 20 min | **infeasible** (11q) |
-| quantum_gp | 1 min | 10 min | 40 min |
-| qnn | 3 min | 20 min | 1–2 hr |
-| qcnn_muw / qcnn_alt | 5 min | 30 min | 2–4 hr |
-| cnn_3d | 2 min | 10 min | 30 min (GPU) |
+| Model | ~150 samples | ~570 samples |
+|---|---|---|
+| Classical (XGB/LGB/CB/MLP) | < 1 sec | < 1 sec |
+| **angle_pqk_svm** (8 qubits) | **< 5 sec** | **5-10 sec** |
+| kernel_svm (3 qubits) | < 1 min | 3 min |
+| qdc_hadamard (3 qubits) | 1 min | 10 min |
+| quantum_gp (3 qubits) | 1 min | 10 min |
+| qnn (3 qubits) | 3 min | 20 min |
+| qcnn_muw / qcnn_alt (3 qubits) | 5 min | 30 min |
+| cnn_3d | 2 min | 10 min (GPU) |
 
-Multiply by folds × seeds (e.g., 5 × 3 = 15).
-
-### Total experiment (observed, 5-fold CV × 3 seeds)
-
-| Dataset | Samples | Qubits | Classical | Quantum | Total |
-|---|---|---|---|---|---|
-| Iris | 150 | 2 | < 1 min | 30 min | ~30 min |
-| Wisconsin | 569 | 3 | < 1 min | 2–4 hr | ~4 hr |
-| HCC Survival | 165 | 3 | < 1 min | 1–3 hr | ~3 hr |
-| PSMA-11 | 133 | 3 | < 1 min | 1–3 hr | ~3 hr |
-| Cervical | 858 | 5 | < 1 min | **3–5 days** | **3–5 days** |
-
-Use `max_features: 8` (3 qubits) for all quantum experiments. Exclude `qdc_swap` when data qubits > 4.
+Multiply by folds x seeds (e.g., 5 x 3 = 15).
 
 ---
 
@@ -560,6 +611,8 @@ explainability:
 ```
 
 Outputs: `shap_bar.png`, `shap_beeswarm.png`, `shap_waterfall_sample_*.png`, `lime_explanation_sample_*.png`. GradCAM available for CNN models.
+
+For projected quantum kernel models (`angle_pqk_svm`, `projected_kernel_svm`), SHAP/LIME is substantially cheaper than for fidelity kernel models due to O(N) prediction cost.
 
 ---
 
@@ -625,7 +678,7 @@ Full reference: [docs/config_reference.md](docs/config_reference.md). Key sectio
 | `evaluation` | `metrics`, `statistical_tests`, `confidence_level` |
 | `reporting` | `markdown`, `latex`, `figures`, `figure_dpi` |
 
-Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
+Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `angle_pqk_svm`, `projected_kernel_svm`, `kernel_svm`, `qdc_hadamard`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
 
 ---
 
@@ -635,7 +688,7 @@ Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, 
 |---|---|
 | `01_quickstart.ipynb` | Install, load iris, run XGBoost, inspect predictions |
 | `02_tabular_classification.ipynb` | Full tabular workflow with multiple models |
-| `03_quantum_models.ipynb` | All quantum models on iris, GDQ score demo |
+| `03_quantum_models.ipynb` | Quantum models on iris: angle PQK SVM and amplitude-encoded models |
 | `04_nifti_imaging.ipynb` | NIfTI + masks, 3D CNN |
 | `05_explainability.ipynb` | SHAP + LIME on classical and quantum models |
 | `06_results_dashboard.ipynb` | Metrics visualization and statistical comparison |
@@ -661,7 +714,7 @@ claryon/
 ├── encoding/                 # Amplitude + angle quantum encoding
 ├── models/
 │   ├── classical/            # XGBoost, LightGBM, CatBoost, MLP, CNN
-│   ├── quantum/              # Kernel SVM, QDC, GP, QNN, QCNN
+│   ├── quantum/              # Angle PQK SVM, Kernel SVM, QDC, GP, QNN, QCNN
 │   ├── presets.yaml          # Complexity preset definitions
 │   └── ensemble.py           # Softmax averaging
 ├── explainability/           # SHAP, LIME, GradCAM, plots
@@ -669,7 +722,8 @@ claryon/
 └── reporting/                # Structured LaTeX, Markdown, BibTeX
 
 scripts/
-└── run_benchmark.sh          # Benchmark runner for included datasets
+├── run_benchmark.sh          # Primary benchmark runner for included datasets
+└── run_validation.sh         # Quick validation script
 
 datasets/                     # Pre-processed, ready-to-use datasets
 configs/                      # Example + benchmark YAML configs
@@ -685,7 +739,7 @@ tests/                        # Unit + integration tests
 1. Create `claryon/models/classical/mymodel_.py` (or `quantum/`)
 2. Subclass `ModelBuilder`, implement `fit()`, `predict_proba()`
 3. Decorate with `@register("model", "mymodel")`
-4. Auto-discovered — no other code changes needed
+4. Auto-discovered - no other code changes needed
 5. Optionally add prose to `claryon/reporting/method_descriptions.yaml`
 
 See notebook `08_custom_model_guide.ipynb`.
@@ -718,7 +772,7 @@ python -m pytest tests/ -q --timeout=300
 ruff check claryon/ tests/
 ```
 
-CI runs on Python 3.10–3.12 via GitHub Actions.
+CI runs on Python 3.10-3.12 via GitHub Actions.
 
 ---
 
@@ -729,6 +783,8 @@ CI runs on Python 3.10–3.12 via GitHub Actions.
 - Moradi S, Spielvogel C, Krajnc D, Brandner C, Hillmich S, Wille R, Traub-Weidinger T, Li X, Hacker M, Drexler W, Papp L. "Error mitigation enables PET radiomic cancer characterization on quantum computers." *Eur J Nucl Med Mol Imaging* 50, 3826-3837 (2023). https://doi.org/10.1007/s00259-023-06362-6
 - Moradi S, et al. "Quantum Convolutional Neural Networks for Predicting ISUP Grade risk in [68Ga]Ga-PSMA Primary Prostate Cancer Patients." Under revision.
 - Huang H-Y, Broughton M, Mohseni M, Babbush R, Boixo S, Neven H, McClean JR. "Power of data in quantum machine learning." *Nature Communications* 12, 2631 (2021). https://doi.org/10.1038/s41467-021-22539-9
+- Thanasilp S, Wang S, Cerezo M, Holmes Z. "Exponential concentration in quantum kernel methods." *Nature Communications* 15, 5200 (2024). https://doi.org/10.1038/s41467-024-49287-w
+- Shaydulin R, Wild SM. "Importance of kernel bandwidth in quantum machine learning." *Physical Review A* 106, 042407 (2022). https://doi.org/10.1103/PhysRevA.106.042407
 - Papp L, Spielvogel CP, Grubmuller B, et al. "Supervised machine learning enables non-invasive lesion characterization in primary prostate cancer with [68Ga]Ga-PSMA-11 PET/MRI." *Eur J Nucl Med Mol Imaging* 48, 1795-1805 (2021). https://doi.org/10.1007/s00259-020-05140-y
 
 ---

@@ -1,7 +1,7 @@
 experiment:
-  name: eanm_hcc_q8
+  name: angle_pqk_hcc_q8
   seed: 42
-  results_dir: Results/eanm_abstract/hcc_q8
+  results_dir: Results/eanm_abstract/angle_pqk_benchmark/hcc_q8
   complexity: medium
 
 data:
@@ -30,19 +30,7 @@ models:
     type: tabular
   - name: mlp
     type: tabular
-  - name: kernel_svm
-    type: tabular_quantum
-  - name: qdc_hadamard
-    type: tabular_quantum
-  - name: quantum_gp
-    type: tabular_quantum
-  - name: qnn
-    type: tabular_quantum
-  - name: qcnn_muw
-    type: tabular_quantum
-  - name: qcnn_alt
-    type: tabular_quantum
-  - name: ensemble
+  - name: angle_pqk_svm
     type: tabular
 
 evaluation:

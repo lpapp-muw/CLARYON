@@ -56,11 +56,11 @@ def _import_model_modules() -> None:
         "claryon.models.quantum.kernel_svm",
         "claryon.models.quantum.qcnn_muw",
         "claryon.models.quantum.qcnn_alt",
-        "claryon.models.quantum.sq_kernel_svm",
         "claryon.models.quantum.qdc_hadamard",
-        "claryon.models.quantum.qdc_swap",
         "claryon.models.quantum.quantum_gp",
         "claryon.models.quantum.qnn",
+        "claryon.models.quantum.projected_kernel_svm",
+        "claryon.models.quantum.angle_pqk_svm",
     ]
     for mod in modules:
         importlib.import_module(mod)

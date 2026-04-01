@@ -160,7 +160,9 @@ List of models to train. Each entry is a model configuration object.
 
 **Tabular (classical):** `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`
 
-**Tabular (quantum):** `kernel_svm`, `sq_kernel_svm`, `qcnn_muw`, `qcnn_alt`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`, `qnn`
+**Tabular (quantum, angle-encoded):** `angle_pqk_svm` (uses `type: tabular`)
+
+**Tabular (quantum, amplitude-encoded):** `kernel_svm`, `projected_kernel_svm`, `qcnn_muw`, `qcnn_alt`, `qdc_hadamard`, `quantum_gp`, `qnn`
 
 **Imaging:** `cnn_2d`, `cnn_3d`
 

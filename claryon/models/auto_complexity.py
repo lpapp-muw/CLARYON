@@ -37,15 +37,14 @@ def estimate_runtime(
 
     circuit_cost = (2 ** n_qubits) * 1e-4  # seconds per circuit eval (simulator)
 
-    if model_name in ("kernel_svm", "sq_kernel_svm"):
+    if model_name in ("kernel_svm",):
         return n_samples ** 2 * circuit_cost
     elif model_name == "qdc_hadamard":
         return n_samples ** 2 * circuit_cost
-    elif model_name == "qdc_swap":
-        swap_cost = (2 ** (2 * n_qubits + 1)) * 1e-4
-        return n_samples ** 2 * swap_cost
     elif model_name == "quantum_gp":
         return n_samples ** 2 * circuit_cost
+    elif model_name in ("projected_kernel_svm", "angle_pqk_svm"):
+        return n_samples * circuit_cost  # O(N) — one circuit per sample
     elif model_type == "imaging":
         epochs = params.get("epochs", 50)
         batch_size = params.get("batch_size", 4)

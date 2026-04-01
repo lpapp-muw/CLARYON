@@ -55,15 +55,9 @@ def estimate_memory_gb(
     total += state_vector_bytes / 1e9
 
     # Kernel matrix for kernel-based models
-    if model_name in ("kernel_svm", "sq_kernel_svm", "qdc_hadamard", "qdc_swap", "quantum_gp"):
+    if model_name in ("kernel_svm", "qdc_hadamard", "quantum_gp"):
         kernel_bytes = n_samples ** 2 * 8  # float64
         total += kernel_bytes / 1e9
-
-    # SWAP test uses 2n+1 qubits
-    if model_name == "qdc_swap":
-        swap_qubits = 2 * n_qubits + 1
-        swap_bytes = 16 * (2 ** swap_qubits)
-        total += swap_bytes / 1e9
 
     return total
 
@@ -99,24 +93,13 @@ def preflight_resource_check(
         )
 
     # Memory: kernel matrix
-    if model_name in ("kernel_svm", "sq_kernel_svm", "qdc_hadamard", "qdc_swap", "quantum_gp"):
+    if model_name in ("kernel_svm", "qdc_hadamard", "quantum_gp"):
         kernel_bytes = n_samples ** 2 * 8
         if kernel_bytes > 2e9:
             warnings.append(
                 f"MEMORY WARNING: {model_name} kernel matrix needs "
                 f"{kernel_bytes / 1e9:.1f} GB ({n_samples}\u00b2 entries). "
                 f"Consider subsampling or using a training-based quantum model."
-            )
-
-    # SWAP test: 2n+1 qubits
-    if model_name == "qdc_swap":
-        swap_qubits = 2 * n_qubits + 1
-        swap_bytes = 16 * (2 ** swap_qubits)
-        if swap_bytes > 1e9:
-            warnings.append(
-                f"MEMORY WARNING: qdc_swap uses {swap_qubits} qubits "
-                f"({swap_bytes / 1e9:.1f} GB state vector). "
-                f"Consider qdc_hadamard ({n_qubits + 1} qubits) instead."
             )
 
     # Qubit count warnings

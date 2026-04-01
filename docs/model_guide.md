@@ -79,53 +79,45 @@ The resolved configuration is saved to `Results/<experiment>/auto_resolved_confi
 
 ## 3. Understanding Quantum Models
 
+### angle_pqk_svm (Angle-Encoded Projected Quantum Kernel SVM)
+
+The recommended quantum model for tabular radiomic data. Each feature is encoded into a dedicated qubit via an angle rotation RY(bandwidth * x_i), then single-qubit Pauli observables (X, Y, Z) are measured on every qubit to produce a classical feature vector. An RBF kernel is computed on these "Pauli vectors" and fed to a standard SVM.
+
+Unlike amplitude-encoded models, angle encoding does not L2-normalize the data, so per-feature magnitude information is preserved. This is why `angle_pqk_svm` closes approximately 90% of the quantum-classical performance gap on radiomic datasets. It also uses only O(N) circuit evaluations (one per sample), making it substantially faster than O(N^2) fidelity kernel models.
+
+Key hyperparameter: `bandwidth` (default 0.5) controls how strongly features rotate the qubits. Lower bandwidth preserves finer distinctions.
+
+Uses `type: tabular` in config (z-score IS applied; the model handles encoding internally).
+
 ### kernel_svm (Quantum Kernel SVM)
 
-This model computes similarity between patients using a quantum circuit instead of a traditional mathematical formula. Each patient's features are encoded into a quantum state, and the overlap between two quantum states measures how similar those patients are. This produces a "kernel matrix" that is fed into a standard Support Vector Machine classifier.
+Computes similarity between patients using a quantum fidelity kernel: the overlap between two amplitude-encoded quantum states. The resulting kernel matrix is fed to a standard SVM classifier. Uses amplitude encoding, so features are L2-normalized. Runtime scales with the square of the number of samples (O(N^2) kernel matrix). Available for comparative evaluation and NIfTI imaging workflows.
 
-Quantum Kernel SVM works best when you have a small-to-moderate number of features (up to 16) and the relationships between features are complex and nonlinear. Because it computes pairwise similarities between all patients, runtime scales with the square of the number of samples --- it becomes slow beyond a few hundred patients.
+### projected_kernel_svm (Projected Quantum Kernel SVM)
 
-### sq_kernel_svm (Squashed Quantum Kernel SVM)
+Same Pauli measurement approach as `angle_pqk_svm`, but uses amplitude encoding instead of angle encoding. Proved empirically that amplitude encoding (not the kernel measurement) is the bottleneck for quantum performance on tabular data: `projected_kernel_svm` achieved the same BACC as the fidelity `kernel_svm`. Available for comparative evaluation.
 
-A variant of the Quantum Kernel SVM that applies a squashing function to the quantum kernel values. This helps prevent the "exponential concentration" problem, where quantum kernels can become nearly identical for all pairs of patients as the number of qubits increases, making the model unable to distinguish between classes.
+### qcnn_muw (Quantum Convolutional Neural Network --- Moradi et al. Architecture)
 
-Use this instead of the standard `kernel_svm` when you have more than 8 features. The squashing function preserves meaningful differences between patients while suppressing noise. It has the same runtime characteristics as the standard quantum kernel SVM.
+Inspired by classical convolutional neural networks, this model applies layers of quantum operations that progressively reduce the quantum state to a single prediction. It uses a circuit design from Moradi et al. developed for nuclear medicine imaging biomarker classification.
 
-### qcnn_muw (Quantum Convolutional Neural Network --- Moradi-Papp Architecture)
-
-Inspired by classical convolutional neural networks, this model applies layers of quantum operations that progressively reduce the quantum state to a single prediction. It uses a specific circuit design from Papp et al. that was developed for nuclear medicine imaging biomarker classification.
-
-This is the recommended first-choice quantum model for tabular nuclear medicine data. It trains iteratively (like a neural network) and handles moderate feature counts well. Typically outperforms kernel-based quantum models on structured clinical data with 4-16 features.
+Trains iteratively (like a neural network) with amplitude encoding. Needs >= 100 epochs to converge. For tabular data, consider `angle_pqk_svm` as a faster alternative.
 
 ### qcnn_alt (Alternative QCNN Architecture)
 
-An alternative quantum convolutional neural network with a different circuit topology. It uses a different arrangement of quantum gates that may capture different types of feature interactions compared to the standard QCNN.
-
-Try this as a second quantum model alongside `qcnn_muw` to see if the alternative architecture captures patterns that the primary one misses. Performance differences between the two architectures are dataset-dependent, so comparing both is recommended.
+An alternative quantum convolutional neural network with a different circuit topology. Performance differences between the two QCNN architectures are dataset-dependent, so comparing both is recommended.
 
 ### qdc_hadamard (Quantum Distance Classifier --- Hadamard Test)
 
-Classifies patients by measuring the quantum distance between a new patient and the average quantum state of each class. It uses the Hadamard test, a quantum subroutine that measures the overlap between two quantum states using one additional auxiliary qubit.
-
-This model is fast and deterministic (no training loop), making it a good baseline quantum model. It works best when the two classes are well-separated in feature space. However, it reduces each class to a single average state, so it cannot capture within-class variation.
-
-### qdc_swap (Quantum Distance Classifier --- SWAP Test)
-
-Similar to `qdc_hadamard` but uses the SWAP test instead of the Hadamard test to measure quantum state overlap. The SWAP test requires more qubits (2n+1 instead of n+1) but can provide more accurate distance estimates for certain types of data.
-
-Use with caution: because it doubles the qubit count, it becomes very expensive for more than 8 features. Prefer `qdc_hadamard` unless you have specific reason to believe the SWAP test will perform better. CLARYON will warn you if the memory requirements become excessive.
+Classifies patients by measuring the quantum distance between a new patient and the average quantum state of each class. Uses the Hadamard test with an ancilla qubit. Fast and deterministic (no training loop), making it a good baseline quantum model. Uses amplitude encoding.
 
 ### quantum_gp (Quantum Gaussian Process)
 
-A Gaussian Process classifier that uses a quantum kernel instead of a classical one. Gaussian Processes provide not just predictions but also uncertainty estimates, telling you how confident the model is for each patient.
-
-This is the only quantum model in CLARYON that provides calibrated uncertainty estimates. Use it when knowing the model's confidence matters --- for example, when flagging uncertain cases for manual review. Like all kernel models, runtime scales quadratically with sample count.
+A Gaussian Process classifier with a quantum (amplitude-encoded) fidelity kernel. Provides calibrated uncertainty estimates in addition to predictions. The most robust amplitude-encoded quantum model on real tabular data. Runtime scales quadratically with sample count.
 
 ### qnn (Quantum Neural Network)
 
-A quantum neural network trained with a contrastive margin-based loss function. It learns to map patients into a quantum feature space where same-class patients are close together and different-class patients are far apart.
-
-Best suited for small datasets (under 200 samples) with complex decision boundaries. The margin-based training can be more stable than standard cross-entropy loss for quantum circuits. Requires careful tuning of the margin parameter.
+A quantum neural network trained with a contrastive margin-based loss function. Uses amplitude encoding. Best suited for small datasets (under 200 samples) with complex decision boundaries.
 
 ---
 
@@ -190,12 +182,20 @@ Best suited for small datasets (under 200 samples) with complex decision boundar
 
 ### Quantum Models
 
-#### kernel_svm / sq_kernel_svm
+#### angle_pqk_svm
+
+| Parameter       | Default  | What It Controls                                      |
+|-----------------|----------|-------------------------------------------------------|
+| `bandwidth`     | 0.5      | Feature scaling before angle rotation. Lower = finer distinctions. |
+| `gamma`         | `"auto"` | RBF kernel bandwidth. `"auto"` uses 1/(d * var(V)).  |
+| `C`             | 1.0      | SVM regularization parameter.                         |
+
+#### kernel_svm / projected_kernel_svm
 
 | Parameter       | Default  | What It Controls                                      |
 |-----------------|----------|-------------------------------------------------------|
 | `shots`         | `null`   | Number of measurement shots. `null` = exact simulation.|
-| `gamma`         | 1.0      | Feature map scaling parameter.                        |
+| `gamma`         | `"auto"` | RBF bandwidth (projected_kernel_svm only).            |
 
 #### qcnn_muw / qcnn_alt
 
@@ -220,13 +220,13 @@ Best suited for small datasets (under 200 samples) with complex decision boundar
 | `epochs`          | 100      | Number of training iterations.                       |
 | `lr`              | 0.01     | Learning rate.                                       |
 
-#### qdc_hadamard / qdc_swap
+#### qdc_hadamard
 
 | Parameter       | Default  | What It Controls                                      |
 |-----------------|----------|-------------------------------------------------------|
 | `shots`         | `null`   | Measurement shots. `null` = exact simulation.         |
 
-> Note: QDC models have no training loop. They compute distances directly from encoded data.
+> Note: QDC Hadamard has no training loop. It computes distances directly from encoded data.
 
 #### quantum_gp
 
@@ -261,54 +261,45 @@ Estimated per-fold runtimes on a modern CPU workstation (no GPU, exact quantum s
 | MLP       | 2-5s        | 5-15s       | 15-30s       |
 | TabPFN    | 1-3s        | 3-10s       | 10-30s       |
 
-### Quantum Models (8 features = 3 qubits)
+### Quantum Models — Angle-Encoded (8 features = 8 qubits)
+
+| Model          | 100 samples | 500 samples | 1000 samples |
+|----------------|-------------|-------------|--------------|
+| angle_pqk_svm  | < 5s        | 5-10s       | 10-20s       |
+
+### Quantum Models — Amplitude-Encoded (8 features = 3 qubits)
 
 | Model          | 100 samples | 500 samples | 1000 samples |
 |----------------|-------------|-------------|--------------|
 | kernel_svm     | 5s          | 2 min       | 8 min        |
-| sq_kernel_svm  | 5s          | 2 min       | 8 min        |
 | qcnn_muw       | 15s         | 1 min       | 2 min        |
 | qcnn_alt       | 15s         | 1 min       | 2 min        |
 | qdc_hadamard   | 3s          | 1 min       | 5 min        |
-| qdc_swap       | 10s         | 5 min       | 20 min       |
 | quantum_gp     | 5s          | 2 min       | 8 min        |
 | qnn            | 20s         | 1.5 min     | 3 min        |
 
-### Quantum Models (16 features = 4 qubits)
+### Quantum Models — Amplitude-Encoded (16 features = 4 qubits)
 
 | Model          | 100 samples | 500 samples | 1000 samples |
 |----------------|-------------|-------------|--------------|
 | kernel_svm     | 10s         | 4 min       | 16 min       |
-| sq_kernel_svm  | 10s         | 4 min       | 16 min       |
 | qcnn_muw       | 30s         | 2 min       | 5 min        |
 | qcnn_alt       | 30s         | 2 min       | 5 min        |
 | qdc_hadamard   | 8s          | 3 min       | 12 min       |
-| qdc_swap       | 1 min       | 30 min      | 2 hours      |
 | quantum_gp     | 10s         | 4 min       | 16 min       |
 | qnn            | 40s         | 3 min       | 7 min        |
 
-### Quantum Models (32 features = 5 qubits)
-
-| Model          | 100 samples | 500 samples | 1000 samples |
-|----------------|-------------|-------------|--------------|
-| kernel_svm     | 20s         | 8 min       | 30 min       |
-| qcnn_muw       | 1 min       | 5 min       | 10 min       |
-| qdc_swap       | 5 min       | 2 hours     | 8+ hours     |
-
-> **Warning**: With 32+ features, `qdc_swap` requires 11 qubits and becomes extremely slow. Use mRMR feature selection to reduce features before quantum models.
+> **Tip**: `angle_pqk_svm` is O(N) — one circuit per sample. Amplitude-encoded kernel models (`kernel_svm`, `quantum_gp`, `qdc_hadamard`) are O(N²) — one circuit per sample pair.
 
 ---
 
 ## Important: Preprocessing and Quantum Models
 
-**Do NOT apply z-score normalization before quantum models.**
-CLARYON handles this automatically --- quantum models receive
-mRMR-selected features without z-score, while classical models
-receive z-scored + mRMR-selected features.
+**Amplitude-encoded models** (`type: tabular_quantum`): z-score normalization is automatically skipped. Amplitude encoding L2-normalizes the feature vector, and prior z-score distorts quantum kernel geometry by 30-40%.
 
-If you override preprocessing manually, be aware that z-score
-normalization before amplitude encoding destroys quantum kernel
-geometry and can reduce performance by 30-40%.
+**Angle-encoded models** (`angle_pqk_svm`, `type: tabular`): z-score normalization IS applied. Angle encoding benefits from normalized feature scales because each feature independently controls a qubit rotation.
+
+CLARYON handles this automatically based on the model's `type` field. If you override preprocessing manually, be aware of the distinction.
 
 ---
 
@@ -324,11 +315,7 @@ Quantum simulation cost grows exponentially with qubit count. Each qubit doubles
 
 ### Kernel models scale quadratically with samples
 
-Models that compute a kernel matrix (`kernel_svm`, `sq_kernel_svm`, `qdc_hadamard`, `qdc_swap`, `quantum_gp`) must compare every pair of samples. Doubling your sample count quadruples the runtime. For datasets with more than 500 samples, prefer training-based models like `qcnn_muw`.
-
-### Watch memory with SWAP test
-
-The `qdc_swap` model uses 2n+1 qubits, where n is the number of qubits for other models. With 8 features (3 qubits), SWAP test needs 7 qubits. With 16 features (4 qubits), it needs 9 qubits. Memory grows as 2^qubits, so SWAP test can easily exhaust available RAM. CLARYON will warn you and skip the model if memory is insufficient.
+Amplitude-encoded models that compute a kernel matrix (`kernel_svm`, `qdc_hadamard`, `quantum_gp`) must compare every pair of samples. Doubling your sample count quadruples the runtime. For datasets with more than 500 samples, prefer `angle_pqk_svm` (O(N) circuits) or training-based models like `qcnn_muw`.
 
 ### Set a realistic time budget for auto mode
 
@@ -348,23 +335,17 @@ Quantum machine learning on classical simulators is computationally expensive an
 - Features: 16 or fewer (after feature selection)
 - Samples: 500 or fewer
 - Decision boundary: highly nonlinear
-- Geometric difference score (g) > 1.0
+- You want to compare quantum and classical approaches on your data
 
 **When classical models are likely sufficient:**
 - Your dataset is large (1000+ samples) --- classical models will outperform or match quantum ones
 - Features are linearly separable --- a simple SVM or logistic regression will work
 - You need fast iteration --- classical models train in seconds
 
-**When to include quantum models in your study:**
-- You are specifically investigating quantum vs. classical performance
-- You want to report geometric difference analysis (Huang et al. 2021)
-- Your features come from quantum-compatible sources (e.g., radiomic features with known nonlinear interactions)
-- You have sufficient compute budget for the additional training time
-
 **Recommended workflow:**
 1. Run classical models first with `medium` or `large` preset
-2. Enable geometric difference analysis (`evaluation.geometric_difference: true`)
-3. If g > 1.0, run quantum models
+2. Add `angle_pqk_svm` (tabular) --- it runs in seconds and gives the best quantum performance on radiomic data
+3. Optionally add amplitude-encoded quantum models for comparative evaluation
 4. Compare with appropriate statistical tests across cross-validation folds
 
-**Reference**: Huang, H.-Y. et al. "Power of data in quantum machine learning." Nature Communications 12, 2631 (2021). doi:10.1038/s41467-021-22539-9
+**On the GDQ score**: The geometric difference score (Huang et al., 2021) evaluates whether a fidelity (amplitude-encoded) quantum kernel captures structure inaccessible to classical kernels. It does not apply to projected quantum kernels (`angle_pqk_svm`) or training-based models (`qnn`, `qcnn_muw`). Use it for research into quantum kernel properties, not as a prerequisite for running quantum models.

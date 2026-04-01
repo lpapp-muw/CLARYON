@@ -106,12 +106,20 @@ preprocessing:
 
   quantum_no_zscore:
     text: >
-      For quantum models, z-score normalization was intentionally omitted
-      prior to amplitude encoding. Amplitude encoding inherently
-      L2-normalizes the feature vector, and prior z-score normalization
-      distorts the geometric structure of the data in Hilbert space,
-      degrading quantum kernel performance. Feature selection (mRMR)
-      was applied to quantum models identically to classical models.
+      For amplitude-encoded quantum models, z-score normalization was
+      intentionally omitted. Amplitude encoding inherently L2-normalizes
+      the feature vector, and prior z-score normalization distorts the
+      geometric structure of the data in Hilbert space, degrading
+      quantum kernel performance. Feature selection (mRMR) was applied
+      to these models identically to classical models.
+
+  quantum_zscore_angle:
+    text: >
+      For angle-encoded quantum models, z-score normalization was applied
+      prior to encoding. Angle encoding maps each feature independently
+      to a qubit rotation, so normalized feature scales improve kernel
+      sensitivity. This is in contrast to amplitude-encoded quantum
+      models, where z-score degrades performance.
 
 # ─────────────────────────────────────────────
 # Cross-validation strategies
@@ -262,21 +270,6 @@ models:
 
   # ── Quantum models ──
 
-  sq_kernel_svm:
-    short: "Simplified quantum kernel SVM"
-    text: >
-      A simplified quantum kernel SVM was employed, following the method
-      of Moradi et al.\ (2022). The quantum kernel
-      $k(\mathbf{x}, \mathbf{y}) = |\langle 0^{\otimes n}|U^\dagger(\mathbf{y})
-      U(\mathbf{x})|0^{\otimes n}\rangle|^2$ was computed using
-      M\"ottonen state preparation on {{n_qubits}} qubits. Unlike a
-      full SVM, predictions were obtained via the linear combination
-      $\mu = \mathbf{y}_\text{train} \cdot K(X_\text{train}, X_\text{test})$
-      and thresholded at zero. This approach is equivalent to a kernel
-      Gaussian process without noise regularization.
-      {{param_text}}
-    cite: "Moradi2022"
-
   qdc_hadamard:
     short: "Quantum distance classifier (Hadamard)"
     text: >
@@ -289,19 +282,6 @@ models:
       Training samples are separated by class; at test time, the
       maximum similarity to each class is compared to assign the
       predicted label.
-      {{param_text}}
-    cite: "Moradi2022"
-
-  qdc_swap:
-    short: "Quantum distance classifier (SWAP)"
-    text: >
-      A quantum distance classifier using the SWAP test was employed,
-      following Moradi et al.\ (2022). The circuit uses two $n$-qubit
-      registers plus an ancilla ($2n+1$ qubits total). Each register
-      encodes one sample via M\"ottonen state preparation, and controlled
-      SWAP gates on each qubit pair compute the state overlap through
-      ancilla measurement. As with the Hadamard variant, class-separated
-      maximum similarity determines the prediction.
       {{param_text}}
     cite: "Moradi2022"
 
@@ -349,6 +329,52 @@ models:
       via Platt scaling.
       {{param_text}}
     cite: "Havlicek2019"
+
+  projected_kernel_svm:
+    short: "Projected quantum kernel SVM"
+    text: >
+      A projected quantum kernel support vector machine was employed,
+      following Huang et al.\ (2021). Rather than measuring the global
+      fidelity kernel $k(\mathbf{x}, \mathbf{y}) =
+      |\langle \mathbf{x} | \mathbf{y} \rangle|^2$, which suffers from
+      exponential concentration on generic data (Thanasilp et al., 2024),
+      each amplitude-encoded sample was measured via single-qubit Pauli
+      observables $\{\sigma_X, \sigma_Y, \sigma_Z\}$ on all {{n_qubits}}
+      qubits, yielding a classical feature vector
+      $\mathbf{v}(\mathbf{x}) \in \mathbb{R}^{3 \times {{n_qubits}}}$.
+      A radial basis function (RBF) kernel
+      $k_{\text{PQK}}(\mathbf{x}_i, \mathbf{x}_j) =
+      \exp(-\gamma \|\mathbf{v}(\mathbf{x}_i) -
+      \mathbf{v}(\mathbf{x}_j)\|^2)$ was computed on these Pauli vectors,
+      with bandwidth $\gamma$ determined automatically from the training
+      data variance. The resulting kernel matrix was passed to a classical
+      SVM with balanced class weights and probability calibration via
+      Platt scaling. This approach reduces the quantum circuit cost from
+      $O(N^2)$ (fidelity kernel) to $O(N)$ evaluations.
+      {{param_text}}
+    cite: "Huang2021"
+
+  angle_pqk_svm:
+    short: "Angle-encoded projected quantum kernel SVM"
+    text: >
+      An angle-encoded projected quantum kernel support vector machine
+      was employed. Unlike amplitude encoding which maps features into
+      $\lceil \log_2 N \rceil$ qubits via L2-normalization (destroying
+      magnitude information), angle encoding assigns one qubit per feature,
+      with each feature $x_i$ encoded as a rotation $R_Y(c \cdot x_i)$
+      where $c$ is a tunable bandwidth parameter. Single-qubit Pauli
+      observables $\{\sigma_X, \sigma_Y, \sigma_Z\}$ were measured on
+      all {{n_features}} qubits, yielding a classical feature vector
+      $\mathbf{v}(\mathbf{x}) \in \mathbb{R}^{3 \times {{n_features}}}$.
+      An RBF kernel was computed on these Pauli vectors with bandwidth
+      $\gamma$ determined from training data variance. Z-score
+      standardization was applied before encoding, as angle encoding
+      benefits from normalized feature scales (unlike amplitude encoding
+      where z-score degrades kernel geometry). This approach combines
+      the projected quantum kernel of Huang et al.\ (2021) with angle
+      encoding and bandwidth tuning (Shaydulin \& Wild, 2022).
+      {{param_text}}
+    cite: "Huang2021"
 
   qcnn_muw:
     short: "QCNN (MUW variant)"

@@ -15,7 +15,7 @@ pip install claryon
 ### Installation from source
 
 ```bash
-git clone https://github.com/laszlo-claryon/claryon.git
+git clone https://github.com/lpapp-muw/CLARYON.git
 cd claryon
 pip install -e .
 ```
@@ -303,7 +303,7 @@ Similarly, imaging models need `pip install claryon[imaging]` and explainability
 
 CLARYON detected that a model would likely exhaust your system memory. This usually happens with quantum models when the feature count is too high. Solutions:
 - Reduce `max_features` in your feature selection config
-- Use `qdc_hadamard` instead of `qdc_swap` (fewer qubits)
+- Use `angle_pqk_svm` which needs fewer circuit evaluations (O(N) instead of O(N^2))
 - Remove the offending model from your config
 
 ### "SKIPPING model_name: estimated memory exceeds available"

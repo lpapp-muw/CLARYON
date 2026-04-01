@@ -61,6 +61,20 @@ kernel_svm:
   large:      { shots: 8192 }
   exhaustive: { shots: 8192 }
 
+projected_kernel_svm:
+  quick:      { gamma: "auto", C: 1.0 }
+  small:      { gamma: "auto", C: 1.0 }
+  medium:     { gamma: "auto", C: 1.0 }
+  large:      { gamma: "auto", C: 10.0 }
+  exhaustive: { gamma: "auto", C: 10.0 }
+
+angle_pqk_svm:
+  quick:      { bandwidth: 0.5, gamma: "auto", C: 1.0 }
+  small:      { bandwidth: 0.5, gamma: "auto", C: 1.0 }
+  medium:     { bandwidth: 0.5, gamma: "auto", C: 1.0 }
+  large:      { bandwidth: 0.5, gamma: "auto", C: 1.0 }
+  exhaustive: { bandwidth: 0.5, gamma: "auto", C: 1.0 }
+
 qcnn_muw:
   medium: { epochs: 100, lr: 0.01, init_scale: 0.1 }
 

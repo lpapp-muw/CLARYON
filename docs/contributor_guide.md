@@ -9,7 +9,7 @@ How to set up, test, and contribute to CLARYON.
 ### Clone and install in editable mode
 
 ```bash
-git clone https://github.com/laszlo-claryon/claryon.git
+git clone https://github.com/lpapp-muw/CLARYON.git
 cd claryon
 python -m venv .venv
 source .venv/bin/activate

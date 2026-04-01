@@ -26,12 +26,6 @@ class TestPreflightResourceCheck:
         )
         assert any("kernel matrix" in w.lower() for w in warnings)
 
-    def test_warns_for_swap_test(self) -> None:
-        warnings = preflight_resource_check(
-            "qdc_swap", "tabular_quantum", 100, 16, {},
-        )
-        assert any("qdc_swap" in w for w in warnings)
-
     def test_no_warnings_for_small_model(self) -> None:
         warnings = preflight_resource_check(
             "kernel_svm", "tabular_quantum", 50, 3, {},
