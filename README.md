@@ -112,7 +112,7 @@ Config:
 ```yaml
 data:
   imaging:
-    path: data/pet_volumes
+    path: data/pet_volumes              # your NIfTI directory
     format: nifti
     image_pattern: "*PET*"
     mask_pattern: "*mask*"
@@ -138,7 +138,7 @@ CLARYON can extract radiomic features from NIfTI volumes using pyradiomics (IBSI
 data:
   radiomics:
     extract: true
-    config: configs/pyradiomics_default.yaml
+    config: my_pyradiomics_config.yaml    # user-provided pyradiomics settings
 ```
 
 ---
@@ -257,11 +257,11 @@ Amplitude encoding's L2 normalization forces all data onto the unit hypersphere,
 ## Quickstart: Tabular Workflow
 
 ```yaml
-# configs/my_tabular.yaml
+# configs/example_tabular.yaml (shipped with CLARYON)
 experiment:
-  name: my_experiment
+  name: tabular_binary_example
   seed: 42
-  results_dir: Results/my_experiment
+  results_dir: Results/tabular_binary
   complexity: medium
 
 data:
@@ -306,12 +306,12 @@ reporting:
 ```
 
 ```bash
-claryon -v run -c configs/my_tabular.yaml
+claryon -v run -c configs/example_tabular.yaml
 ```
 
 Results:
 ```
-Results/my_experiment/
+Results/tabular_binary/
 ├── metrics_summary.csv
 ├── report.md
 ├── methods.tex
@@ -374,7 +374,7 @@ experiment:
 
 data:
   imaging:
-    path: data/pet_voi
+    path: data/pet_voi                    # your NIfTI VOI directory
     format: nifti
     mask_pattern: "*mask*"
 
@@ -634,9 +634,11 @@ Outputs: `methods.tex` (prose), `results.tex` (table), `references_needed.txt` (
 
 ## Inference on New Data
 
+After running an experiment, apply a saved model to new data:
+
 ```bash
 claryon infer \
-    --model-dir Results/my_experiment/xgboost/seed_42/fold_0/ \
+    --model-dir Results/tabular_binary/xgboost/seed_42/fold_0/ \
     --input data/new_patients.csv \
     --output predictions.csv
 ```
@@ -752,15 +754,16 @@ See notebook `08_custom_model_guide.ipynb`.
 # Docker (CPU)
 docker build -t claryon .
 docker run -v $(pwd)/data:/app/data -v $(pwd)/Results:/app/Results \
-    claryon run -c configs/my_config.yaml
+    claryon run -c configs/example_tabular.yaml
 
 # Docker (GPU)
 docker build -f Dockerfile.gpu -t claryon-gpu .
-docker run --gpus all -v ... claryon-gpu run -c configs/my_config.yaml
+docker run --gpus all -v $(pwd)/data:/app/data -v $(pwd)/Results:/app/Results \
+    claryon-gpu run -c configs/example_tabular.yaml
 
 # Singularity (HPC)
 singularity build claryon.sif singularity.def
-singularity run claryon.sif run -c configs/my_config.yaml
+singularity run claryon.sif run -c configs/example_tabular.yaml
 ```
 
 ---

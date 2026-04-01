@@ -13,6 +13,10 @@ cv:
   test_size: 0.25
   seeds: [42]
 models:
+  - name: angle_pqk_svm
+    type: tabular
+    params:
+      bandwidth: 0.5
   - name: projected_kernel_svm
     type: tabular_quantum
   - name: kernel_svm

@@ -117,6 +117,20 @@ def run_inference(
     if id_col in df.columns:
         df = df.drop(columns=[id_col])
 
+    # Auto-detect label column if not explicitly specified and column count
+    # exceeds what the preprocessing state expects
+    if preproc_state is not None and y_true is None:
+        expected = preproc_state.n_features_original
+        if len(df.columns) > expected:
+            _label_candidates = {"label", "target", "class", "y", "Label", "Target", "Class"}
+            for col in list(df.columns):
+                if col in _label_candidates:
+                    logger.info("Auto-detected label column '%s' (expected %d features, got %d)",
+                                col, expected, len(df.columns))
+                    y_true = df[col].to_numpy()
+                    df = df.drop(columns=[col])
+                    break
+
     X = df.to_numpy(dtype=np.float64)
 
     # Apply preprocessing

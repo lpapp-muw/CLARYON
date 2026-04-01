@@ -56,7 +56,10 @@ class LightGBMModel(ModelBuilder):
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict labels or values."""
-        preds = self._model.predict(X)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="X does not have valid feature names")
+            preds = self._model.predict(X)
         if self._task_type != TaskType.REGRESSION:
             preds = preds.astype(int)
         return preds
@@ -65,7 +68,10 @@ class LightGBMModel(ModelBuilder):
         """Predict class probabilities."""
         if self._task_type == TaskType.REGRESSION:
             raise NotImplementedError("predict_proba not available for regression")
-        return self._model.predict_proba(X)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="X does not have valid feature names")
+            return self._model.predict_proba(X)
 
     def save(self, model_dir: Path) -> None:
         """Save model."""

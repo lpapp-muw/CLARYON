@@ -82,7 +82,7 @@ def generate_shap_plots(
 
         fig, ax = plt.subplots(figsize=(10, 8))
         for rank, feat_idx in enumerate(sorted_idx[::-1]):
-            y_positions = np.full(vals.shape[0], rank)
+            y_positions = np.full(vals.shape[0], float(rank))
             y_positions += np.random.default_rng(42).uniform(-0.3, 0.3, size=vals.shape[0])
             colors = X_test[:, feat_idx] if feat_idx < X_test.shape[1] else vals[:, feat_idx]
             ax.scatter(

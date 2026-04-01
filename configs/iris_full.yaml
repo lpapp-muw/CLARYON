@@ -32,6 +32,10 @@ models:
     params:
       hidden_layer_sizes: [64, 32]
       max_iter: 500
+  - name: angle_pqk_svm
+    type: tabular
+    params:
+      bandwidth: 0.5
   - name: kernel_svm
     type: tabular_quantum
   - name: qcnn_muw

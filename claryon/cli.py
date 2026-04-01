@@ -90,8 +90,16 @@ def cmd_infer(args: argparse.Namespace) -> None:
     )
 
 
+def _ensure_all_registered() -> None:
+    """Import model and metric modules to trigger @register decorators."""
+    from .pipeline import _import_model_modules
+    _import_model_modules()
+    from .evaluation import metrics as _metrics_module  # noqa: F401
+
+
 def cmd_list_models(args: argparse.Namespace) -> None:
     """List all registered models."""
+    _ensure_all_registered()
     from .registry import list_registered
     models = list_registered("model")
     if not models:
@@ -103,6 +111,7 @@ def cmd_list_models(args: argparse.Namespace) -> None:
 
 def cmd_list_metrics(args: argparse.Namespace) -> None:
     """List all registered metrics."""
+    _ensure_all_registered()
     from .registry import list_registered
     metrics = list_registered("metric")
     if not metrics:
