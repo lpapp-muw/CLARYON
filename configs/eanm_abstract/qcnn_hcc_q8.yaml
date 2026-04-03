@@ -1,0 +1,34 @@
+experiment:
+  name: qcnn_hcc_q8
+  seed: 42
+  results_dir: Results/eanm_abstract/qcnn_hcc_q8
+  complexity: medium
+
+data:
+  tabular:
+    path: datasets/hcc-survival/train.csv
+    label_col: label
+    sep: ";"
+
+preprocessing:
+  zscore: true
+  feature_selection: true
+  spearman_threshold: 0.8
+  max_features: 8
+
+cv:
+  strategy: kfold
+  n_folds: 5
+  seeds: [42, 123, 456]
+
+models:
+  - name: qcnn_muw
+    type: tabular_quantum
+  - name: qcnn_alt
+    type: tabular_quantum
+
+evaluation:
+  metrics: [bacc, auc, sensitivity, specificity]
+
+reporting:
+  markdown: true
