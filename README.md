@@ -8,6 +8,14 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 
 ---
 
+> ### ⚠️ Work-in-Progress Notice — qCNN models
+>
+> The Quantum Convolutional Neural Network models (`qcnn_muw`, `qcnn_alt`) shipped with CLARYON v0.13.0 are **work in progress and not validated for scientific use**. They are intentionally **not registered** in the default model registry — referencing them in a config file will produce a "Model not registered — skipping" error. The source files remain in the tree for ongoing development by the maintainer.
+>
+> A revised qCNN implementation is under active development and will be released in a future CLARYON version. Until then, please use the other quantum models (`angle_pqk_svm`, `kernel_svm`, `projected_kernel_svm`, `qdc_hadamard`, `quantum_gp`, `qnn`) for any quantum experiment.
+
+---
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -39,43 +47,57 @@ CLARYON is a YAML-driven machine learning framework that unifies classical, quan
 
 ## Installation
 
+CLARYON is currently distributed **from source only** (no PyPI release yet — the package will be published once the multi-center domain-shift study is accepted).
+
+### Recommended: one-shot installer
+
 ```bash
-# Core (tabular models only)
-pip install claryon
-
-# With quantum models (PennyLane)
-pip install claryon[quantum]
-
-# With medical imaging (NIfTI, TIFF)
-pip install claryon[imaging]
-
-# With gradient boosting (XGBoost, LightGBM, CatBoost)
-pip install claryon[boosting]
-
-# With explainability (SHAP, LIME)
-pip install claryon[explain]
-
-# With deep learning (PyTorch CNNs)
-pip install claryon[torch]
-
-# Everything
-pip install claryon[all]
+git clone https://github.com/lpapp-muw/CLARYON.git
+cd CLARYON
+bash scripts/install.sh
 ```
 
-**From source:**
+The installer creates a `.venv`, installs all CLARYON extras, and handles the
+pyradiomics build-isolation workaround automatically. On Windows, use
+`scripts\install.ps1` from PowerShell.
+
+### Manual install
 
 ```bash
 git clone https://github.com/lpapp-muw/CLARYON.git
 cd CLARYON
 python -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip setuptools wheel
+
+# Core + all standard extras (quantum, imaging, torch, boosting, tabular-dl, explain, report, dev)
 pip install -e ".[all]"
+
+# OPTIONAL — radiomics extraction. pyradiomics has a known build-isolation bug
+# (its setup.py imports numpy at the top level), so it MUST be installed
+# separately with build isolation disabled:
+pip install numpy versioneer
+pip install -e ".[radiomics]" --no-build-isolation
 ```
 
-**Notes:**
-- Python >= 3.10 required. Tested on 3.10, 3.11, 3.12.
-- pyradiomics requires: `pip install numpy versioneer && pip install pyradiomics==3.0.1 --no-build-isolation`
-- TabPFN downloads pretrained weights (~500 MB) on first use. Requires Python <= 3.11.
-- PyTorch CPU is sufficient for quantum models. For large imaging, install with CUDA: `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121`
+### Per-extra install (when you only need a subset)
+
+```bash
+pip install -e ".[quantum]"     # PennyLane (>=0.44)
+pip install -e ".[imaging]"     # NIfTI + TIFF I/O
+pip install -e ".[boosting]"    # XGBoost, LightGBM, CatBoost
+pip install -e ".[tabular-dl]"  # TabPFN
+pip install -e ".[torch]"       # PyTorch CNNs
+pip install -e ".[explain]"     # SHAP, LIME
+pip install -e ".[report]"      # Matplotlib, seaborn, jinja2
+```
+
+### Notes
+
+- **Python**: 3.11, 3.12, or 3.13. Earlier versions are no longer supported (PennyLane >=0.44 requires Python >=3.11).
+- **pyradiomics** is intentionally excluded from `[all]` because pyradiomics 3.x sdist fails under PEP 517 build isolation (`ModuleNotFoundError: No module named 'numpy'` during the build). The two-step `numpy` + `--no-build-isolation` dance above is the only reliable install path.
+- **TabPFN** downloads pretrained weights (~500 MB) on first use. TabPFN v2.x supports Python 3.9–3.13. Browser login or `TABPFN_TOKEN` environment variable is required on first call (see [TabPFN docs](https://github.com/PriorLabs/TabPFN)).
+- **PyTorch CPU** is sufficient for quantum models. For large NIfTI imaging, install with CUDA: `pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121`.
+- **qCNN models** are not installable via the registry in this version — see the WIP notice at the top of this README.
 
 ---
 
@@ -145,7 +167,7 @@ data:
 
 ## Models
 
-CLARYON has 16 registered models plus an ensemble aggregator.
+CLARYON has 14 registered models (plus an ensemble aggregator) in v0.13.0. Two qCNN variants (`qcnn_muw`, `qcnn_alt`) are present in the source tree but **not registered** — see the WIP notice at the top of this README.
 
 ### Model-Data Compatibility
 
@@ -167,8 +189,8 @@ CLARYON has 16 registered models plus an ensemble aggregator.
 | QDC Hadamard | `tabular_quantum` | yes | yes | - |
 | Quantum GP | `tabular_quantum` | yes | yes | - |
 | QNN | `tabular_quantum` | yes | yes | - |
-| QCNN-MUW | `tabular_quantum` | yes | yes | - |
-| QCNN-ALT | `tabular_quantum` | yes | yes | - |
+| ~~QCNN-MUW~~ (WIP) | ~~`tabular_quantum`~~ | not registered | not registered | - |
+| ~~QCNN-ALT~~ (WIP) | ~~`tabular_quantum`~~ | not registered | not registered | - |
 | Ensemble | `tabular` | yes | yes | - |
 
 Note: `angle_pqk_svm` uses `type: tabular` because it handles quantum encoding internally (angle encoding, not amplitude). It receives z-scored features from the pipeline.
@@ -207,8 +229,8 @@ CLARYON provides two families of quantum models, distinguished by their encoding
 | `qdc_hadamard` | Ancilla + controlled Mottonen + Hadamard test | Amplitude | Moradi et al., 2022 |
 | `quantum_gp` | Mottonen kernel, full GP posterior, sigmoid classification | Amplitude | Moradi et al., 2023 |
 | `qnn` | Per-class Mottonen + Rot/CNOT layers, margin loss | Amplitude | Moradi et al., 2023 |
-| `qcnn_muw` | Amplitude embedding, conv/pool layers, ArbitraryUnitary | Amplitude | Moradi et al., under revision |
-| `qcnn_alt` | Alternative conv/pool architecture | Amplitude | MedUni Wien design |
+| ~~`qcnn_muw`~~ | **WIP — not registered** (under reimplementation) | Amplitude | — |
+| ~~`qcnn_alt`~~ | **WIP — not registered** (under reimplementation) | Amplitude | — |
 
 For tabular radiomic datasets, the angle-encoded `angle_pqk_svm` substantially outperforms amplitude-encoded quantum models (see [Benchmark Results](#benchmark-results)). Amplitude-encoded models remain available for comparative evaluation and for NIfTI imaging workflows where amplitude encoding is the only viable option (angle encoding would require one qubit per voxel, which is infeasible for typical VOI sizes).
 
@@ -362,9 +384,11 @@ evaluation:
   metrics: [bacc, auc]
 ```
 
-### Quantum QCNN on PET VOIs
+### Quantum models on PET VOIs
 
 NIfTI volumes are loaded, masked, flattened, then amplitude-encoded for quantum circuits. Note: NIfTI quantum models use amplitude encoding (the only viable option for volumetric data).
+
+> **Note**: The `qcnn_muw` / `qcnn_alt` models referenced in earlier CLARYON releases are work-in-progress in v0.13.0 and not registered (see WIP notice at the top of this README). Use `kernel_svm`, `quantum_gp`, or `qdc_hadamard` for amplitude-encoded NIfTI quantum experiments. A corrected qCNN will return in a future release.
 
 ```yaml
 experiment:
@@ -386,7 +410,7 @@ cv:
 models:
   - name: kernel_svm
     type: tabular_quantum
-  - name: qcnn_muw
+  - name: quantum_gp
     type: tabular_quantum
   - name: xgboost
     type: tabular
@@ -399,7 +423,7 @@ models:
 | 4x4x4 | 64 | 6 | Fast, ideal for testing |
 | 8x8x8 | 512 | 9 | Moderate runtime |
 | 16x16x16 | 4096 | 12 | Hours per fold |
-| 32x32x32 | 32768 | 15 | Feasible with high compute (Moradi et al., under revision) |
+| 32x32x32 | 32768 | 15 | Feasible with high compute |
 | 64x64x64 | 262144 | 18 | Very demanding, cluster recommended |
 
 ---
@@ -479,7 +503,7 @@ For NIfTI data, amplitude encoding is the only option. For tabular data, amplitu
 | Model | Note |
 |---|---|
 | `angle_pqk_svm` | Recommended for tabular data. O(N) circuit evaluations. ~5-10 seconds per fold. |
-| `qcnn_muw`, `qcnn_alt` | Need >=100 epochs. Use `complexity: medium` minimum. |
+| ~~`qcnn_muw`, `qcnn_alt`~~ | **WIP — not registered in v0.13.0**, see top-of-README notice. |
 | `quantum_gp` | Most robust amplitude-encoded model. Provides uncertainty estimates. |
 | `kernel_svm` | O(N^2) fidelity kernel. Slow beyond ~500 samples. |
 
@@ -504,7 +528,7 @@ experiment:
 Per-model override:
 ```yaml
 models:
-  - name: qcnn_muw
+  - name: qnn
     preset: large
   - name: xgboost
     params:
@@ -591,7 +615,7 @@ Angle encoding with projected quantum kernels closes approximately 90% of the qu
 | qdc_hadamard (3 qubits) | 1 min | 10 min |
 | quantum_gp (3 qubits) | 1 min | 10 min |
 | qnn (3 qubits) | 3 min | 20 min |
-| qcnn_muw / qcnn_alt (3 qubits) | 5 min | 30 min |
+| ~~qcnn_muw / qcnn_alt~~ (WIP, not registered) | n/a | n/a |
 | cnn_3d | 2 min | 10 min (GPU) |
 
 Multiply by folds x seeds (e.g., 5 x 3 = 15).
@@ -680,7 +704,7 @@ Full reference: [docs/config_reference.md](docs/config_reference.md). Key sectio
 | `evaluation` | `metrics`, `statistical_tests`, `confidence_level` |
 | `reporting` | `markdown`, `latex`, `figures`, `figure_dpi` |
 
-Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `angle_pqk_svm`, `projected_kernel_svm`, `kernel_svm`, `qdc_hadamard`, `quantum_gp`, `qnn`, `qcnn_muw`, `qcnn_alt`, `tabm`, `realmlp`, `modernnca`.
+Available models: `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `cnn_2d`, `cnn_3d`, `angle_pqk_svm`, `projected_kernel_svm`, `kernel_svm`, `qdc_hadamard`, `quantum_gp`, `qnn`, `tabm`, `realmlp`, `modernnca`. (`qcnn_muw`, `qcnn_alt` are WIP and not registered — see top-of-README notice.)
 
 ---
 
@@ -775,7 +799,7 @@ python -m pytest tests/ -q --timeout=300
 ruff check claryon/ tests/
 ```
 
-CI runs on Python 3.10-3.12 via GitHub Actions.
+CI runs on Python 3.11, 3.12, and 3.13 via GitHub Actions.
 
 ---
 
@@ -784,7 +808,6 @@ CI runs on Python 3.10-3.12 via GitHub Actions.
 - Papp L, Visvikis D, Sollini M, Shi K, Kirienko M. "The Dawn of Quantum AI in Nuclear Medicine: an EANM Perspective." *The EANM Journal*, 2026 (in revision). CLARYON is the official code repository for this manuscript (via [EANM-AI-QC](https://github.com/lpapp-muw/EANM-AI-QC)).
 - Moradi S, Brandner C, Spielvogel C, Krajnc D, Hillmich S, Wille R, Drexler W, Papp L. "Clinical data classification with noisy intermediate scale quantum computers." *Scientific Reports* 12, 1851 (2022). https://doi.org/10.1038/s41598-022-05971-9
 - Moradi S, Spielvogel C, Krajnc D, Brandner C, Hillmich S, Wille R, Traub-Weidinger T, Li X, Hacker M, Drexler W, Papp L. "Error mitigation enables PET radiomic cancer characterization on quantum computers." *Eur J Nucl Med Mol Imaging* 50, 3826-3837 (2023). https://doi.org/10.1007/s00259-023-06362-6
-- Moradi S, et al. "Quantum Convolutional Neural Networks for Predicting ISUP Grade risk in [68Ga]Ga-PSMA Primary Prostate Cancer Patients." Under revision.
 - Huang H-Y, Broughton M, Mohseni M, Babbush R, Boixo S, Neven H, McClean JR. "Power of data in quantum machine learning." *Nature Communications* 12, 2631 (2021). https://doi.org/10.1038/s41467-021-22539-9
 - Thanasilp S, Wang S, Cerezo M, Holmes Z. "Exponential concentration in quantum kernel methods." *Nature Communications* 15, 5200 (2024). https://doi.org/10.1038/s41467-024-49287-w
 - Shaydulin R, Wild SM. "Importance of kernel bandwidth in quantum machine learning." *Physical Review A* 106, 042407 (2022). https://doi.org/10.1103/PhysRevA.106.042407

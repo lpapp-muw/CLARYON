@@ -54,8 +54,11 @@ def _import_model_modules() -> None:
         "claryon.models.classical.cnn_2d",
         "claryon.models.classical.cnn_3d",
         "claryon.models.quantum.kernel_svm",
-        "claryon.models.quantum.qcnn_muw",
-        "claryon.models.quantum.qcnn_alt",
+        # qcnn_* models are work-in-progress in v0.13.0 and INTENTIONALLY
+        # NOT auto-registered. The source files remain in claryon/models/quantum/
+        # for ongoing development. Configs that reference qcnn_muw /
+        # qcnn_alt will get the standard
+        # "Model not registered — skipping" error. See README WIP notice.
         "claryon.models.quantum.qdc_hadamard",
         "claryon.models.quantum.quantum_gp",
         "claryon.models.quantum.qnn",
@@ -168,7 +171,11 @@ def stage_load_data(config: ClaryonConfig, state: PipelineState, **kwargs: Any) 
         else:
             # Load flattened for tabular-style models
             from .io.nifti import load_nifti_dataset
-            nifti_result = load_nifti_dataset(root=ic.path, pet_pattern=img_pat, mask_pattern=mask_pat)
+            nifti_result = load_nifti_dataset(
+                root=ic.path, pet_pattern=img_pat, mask_pattern=mask_pat,
+                flatten_order=ic.flatten_order,
+                axis_order=ic.axis_order,
+            )
             ds_imaging = nifti_result.get("all") or nifti_result.get("train")
 
         if ds_imaging is not None:
@@ -272,6 +279,47 @@ def stage_preprocess(config: ClaryonConfig, state: PipelineState, **kwargs: Any)
                 logger.warning("No image/mask pairs found for radiomics extraction")
 
 
+def _resolve_center_ids(
+    config: ClaryonConfig, dataset: Dataset,
+) -> Optional[np.ndarray]:
+    """Load center IDs if the split strategy requires them.
+
+    Args:
+        config: Experiment configuration.
+        dataset: Loaded dataset with keys.
+
+    Returns:
+        Array of center ID strings, or None if not needed.
+
+    Raises:
+        ValueError: If center_col is missing when required.
+    """
+    cv = config.cv
+    if cv.strategy not in ("scst", "loco"):
+        return None
+
+    if cv.center_col is None:
+        raise ValueError(
+            f"cv.center_col is required for strategy={cv.strategy!r}. "
+            "Set it to a CSV path (for imaging) or a column name (for tabular)."
+        )
+
+    if cv.center_col.endswith(".csv"):
+        from .io.center_labels import attach_center_ids, load_center_labels
+
+        center_map = load_center_labels(cv.center_col)
+        return attach_center_ids(dataset.keys, center_map)
+
+    # Treat as column name in tabular data
+    if dataset.metadata and cv.center_col in dataset.metadata:
+        return np.asarray(dataset.metadata[cv.center_col])
+
+    raise ValueError(
+        f"center_col={cv.center_col!r} is not a CSV path and was not found "
+        "in dataset metadata."
+    )
+
+
 def stage_split(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
     """Stage 4: Generate cross-validation splits.
 
@@ -286,6 +334,8 @@ def stage_split(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
         return
 
     cv = config.cv
+    center_ids = _resolve_center_ids(config, ds)
+
     for seed in cv.seeds:
         splits = auto_split(
             ds.y,
@@ -293,6 +343,7 @@ def stage_split(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
             n_folds=cv.n_folds,
             seed=seed,
             test_size=cv.test_size,
+            center_ids=center_ids,
         )
         state.splits[seed] = splits
         logger.info("Generated %d splits for seed=%d", len(splits), seed)
@@ -502,9 +553,10 @@ def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
                                     preproc_state.n_features_original,
                                     preproc_state.n_features_selected)
                     elif model_entry.type == "imaging":
-                        # Image normalization
+                        # Image normalization (for 5D-tensor CNN path)
                         from .preprocessing.image_prep import normalize_images
                         mode = config.preprocessing.image_normalization
+                        fixed_div = config.preprocessing.fixed_divisor
                         if mode == "cohort_global":
                             gmin = float(X_train.min())
                             gmax = float(X_train.max())
@@ -512,9 +564,57 @@ def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
                                                              global_min=gmin, global_max=gmax)
                             X_test, _, _ = normalize_images(X_test, mode="cohort_global",
                                                             global_min=gmin, global_max=gmax)
+                        elif mode == "fixed_divisor":
+                            # Legacy "global" normalization mode: divisor fixed at 97.65078,
+                            # or auto = training-set max (leakage-free when auto).
+                            divisor = (fixed_div if fixed_div is not None
+                                       else float(X_train.max()))
+                            logger.info("  Image normalization: fixed_divisor=%.5f", divisor)
+                            X_train, _, _ = normalize_images(
+                                X_train, mode="fixed_divisor", fixed_divisor=divisor)
+                            X_test, _, _ = normalize_images(
+                                X_test, mode="fixed_divisor", fixed_divisor=divisor)
                         else:
                             X_train, _, _ = normalize_images(X_train, mode="per_image")
                             X_test, _, _ = normalize_images(X_test, mode="per_image")
+
+                    # Imaging → tabular_quantum (qCNN/amplitude encoding) image normalization.
+                    # The "imaging" branch above only runs for 5D-tensor CNN models.
+                    # For qCNN on flattened NIfTI we apply fixed_divisor / cohort_global
+                    # normalization BEFORE amplitude_encode_matrix so the unit-vector
+                    # matches the legacy clip(x/97.65078, 0, 1) normalization.
+                    if (ds.data_source == "imaging"
+                            and model_entry.type == "tabular_quantum"):
+                        from .preprocessing.image_prep import normalize_images
+                        mode = config.preprocessing.image_normalization
+                        fixed_div = config.preprocessing.fixed_divisor
+                        if mode == "fixed_divisor":
+                            divisor = (fixed_div if fixed_div is not None
+                                       else float(X_train.max()))
+                            logger.info(
+                                "  Quantum imaging normalization: "
+                                "fixed_divisor=%.5f", divisor)
+                            X_train, _, _ = normalize_images(
+                                X_train, mode="fixed_divisor",
+                                fixed_divisor=divisor)
+                            X_test, _, _ = normalize_images(
+                                X_test, mode="fixed_divisor",
+                                fixed_divisor=divisor)
+                        elif mode == "cohort_global":
+                            gmin = float(X_train.min())
+                            gmax = float(X_train.max())
+                            logger.info(
+                                "  Quantum imaging normalization: "
+                                "cohort_global [%.3f, %.3f]", gmin, gmax)
+                            X_train, _, _ = normalize_images(
+                                X_train, mode="cohort_global",
+                                global_min=gmin, global_max=gmax)
+                            X_test, _, _ = normalize_images(
+                                X_test, mode="cohort_global",
+                                global_min=gmin, global_max=gmax)
+                        # else: per_image is the default pre-L2 no-op
+                        # (L2 in AmplitudeEmbedding makes per-image min-max equivalent
+                        # to raw voxels).
 
                     # Auto complexity: resolve once on first fold
                     if config.experiment.complexity == "auto" and auto_presets is None:
@@ -573,6 +673,14 @@ def stage_train(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> N
                                 "status": "skipped_memory",
                             })
                             continue
+
+                    # Pass CV seed to model for weight initialisation — HF-078
+                    # Only inject if model explicitly accepts 'seed' (avoids
+                    # breaking sklearn wrappers that forward **kwargs to sklearn).
+                    import inspect
+                    _sig = inspect.signature(model_cls.__init__)
+                    if "seed" in _sig.parameters:
+                        params["seed"] = seed
 
                     try:
                         model = model_cls(**params)

@@ -128,6 +128,7 @@ def _collect_pairs(
 
 def _build_arrays(
     pairs: List[Tuple[Path, Optional[Path]]],
+    flatten_order: str = "rowmajor",
 ) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
     """Load and flatten NIfTI pairs into feature matrix.
 
@@ -153,7 +154,9 @@ def _build_arrays(
                 )
             img = np.where(m > 0, img, 0.0)
 
-        vec = img.ravel().astype(np.float64)
+        from .hilbert import flatten_volume
+
+        vec = flatten_volume(img, order=flatten_order).astype(np.float64)
         vec = np.nan_to_num(vec, nan=0.0, posinf=0.0, neginf=0.0)
         X_list.append(vec)
         y_list.append(_parse_label(pet_path))
@@ -196,6 +199,7 @@ def load_nifti_dataset(
     pet_pattern: str = "*.nii*",
     mask_pattern: Optional[str] = "*mask*.nii*",
     task_type: Optional[TaskType] = None,
+    flatten_order: str = "rowmajor",
 ) -> Dict[str, Any]:
     """Load a NIfTI dataset into Dataset objects.
 
@@ -221,8 +225,8 @@ def load_nifti_dataset(
         tr_pairs = _collect_pairs(train_dir, pet_pattern, mask_pattern)
         te_pairs = _collect_pairs(test_dir, pet_pattern, mask_pattern)
 
-        X_tr, y_tr, ids_tr, _ = _build_arrays(tr_pairs)
-        X_te, y_te, ids_te, _ = _build_arrays(te_pairs)
+        X_tr, y_tr, ids_tr, _ = _build_arrays(tr_pairs, flatten_order=flatten_order)
+        X_te, y_te, ids_te, _ = _build_arrays(te_pairs, flatten_order=flatten_order)
 
         if task_type is None:
             n_unique = len(set(y_tr.tolist()))
@@ -247,7 +251,7 @@ def load_nifti_dataset(
 
     # Single directory
     pairs = _collect_pairs(root, pet_pattern, mask_pattern)
-    X, y_labels, ids, _ = _build_arrays(pairs)
+    X, y_labels, ids, _ = _build_arrays(pairs, flatten_order=flatten_order)
 
     if task_type is None:
         n_unique = len(set(y_labels.tolist()))

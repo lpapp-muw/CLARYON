@@ -1,20 +1,80 @@
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+# CLARYON GPU Docker image (CUDA 12.4 + cuDNN, Python 3.11).
+#
+# Build:
+#     docker build -f Dockerfile.gpu -t claryon-gpu .
+#     docker build -f Dockerfile.gpu -t claryon-gpu-rad --build-arg INSTALL_RADIOMICS=1 .
+#
+# Run:
+#     docker run --rm --gpus all claryon-gpu list-models
+#     docker run --rm --gpus all -v $(pwd)/data:/app/data -v $(pwd)/Results:/app/Results \
+#         claryon-gpu run -c configs/example_imaging.yaml
+#
+# Base image: nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 — chosen instead of
+# pytorch/pytorch:* tags because the latter pin Python to whatever version
+# their build happened to use (often 3.10). We install Python 3.11 explicitly
+# via the deadsnakes PPA, then install CUDA-enabled torch via pip wheels.
+
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ARG INSTALL_RADIOMICS=0
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# System dependencies
+# Install Python 3.11 + system dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+        software-properties-common \
+        ca-certificates \
+        curl \
+        git \
+        build-essential \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 \
+        python3.11-dev \
+        python3.11-venv \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 \
+    && ln -sf /usr/bin/python3.11 /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.11 /usr/local/bin/python3 \
+    && apt-get purge -y software-properties-common \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install
-COPY pyproject.toml .
+# Copy package metadata + source first for layer caching.
+COPY pyproject.toml README.md ./
 COPY claryon/ claryon/
-RUN pip install --no-cache-dir -e ".[all]"
 
-# Copy remaining files
+# Install build prereqs.
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Install torch + torchvision with CUDA 12.4 wheels BEFORE installing claryon[all],
+# so claryon's torch dependency is satisfied by the CUDA-enabled wheel rather
+# than the CPU default.
+RUN python -m pip install --no-cache-dir \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/cu124
+
+# Install CLARYON with all extras.
+RUN python -m pip install --no-cache-dir -e ".[all]"
+
+# Optional pyradiomics (build-isolation workaround).
+RUN if [ "$INSTALL_RADIOMICS" = "1" ]; then \
+        python -m pip install --no-cache-dir numpy versioneer && \
+        python -m pip install --no-cache-dir -e ".[radiomics]" --no-build-isolation; \
+    fi
+
+# Copy remaining files after the heavy install layer.
 COPY configs/ configs/
 COPY tests/ tests/
 COPY scripts/ scripts/
 
+# Smoke test — fails the build if claryon is broken or torch can't see CUDA libs.
+RUN python -c "import claryon; import torch; \
+    print(f'CLARYON {claryon.__version__} built OK'); \
+    print(f'torch {torch.__version__}, CUDA built-in: {torch.version.cuda}')"
+
 ENTRYPOINT ["claryon"]
+CMD ["--help"]

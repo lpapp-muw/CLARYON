@@ -5,7 +5,7 @@ New module. Basic image preprocessing utilities for NIfTI/TIFF data.
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -170,3 +170,100 @@ def random_noise(
     rng = np.random.default_rng(seed)
     noise = rng.normal(0, std, volume.shape)
     return volume + noise
+
+
+def nyul_fit(
+    volumes: List[np.ndarray],
+    masks: Optional[List[np.ndarray]] = None,
+    percentiles: Tuple[float, ...] = (1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99),
+) -> np.ndarray:
+    """Compute Nyúl reference histogram landmarks from training volumes.
+
+    For each volume, computes the intensity percentiles of foreground
+    voxels (nonzero mask positions if masks provided, otherwise all
+    nonzero voxels). The reference landmarks are the median of each
+    percentile across all training volumes.
+
+    Args:
+        volumes: List of 3D arrays (training set only).
+        masks: Optional list of binary masks (same shapes as volumes).
+        percentiles: Percentile positions to compute.
+
+    Returns:
+        Reference landmarks array, shape (len(percentiles),).
+    """
+    all_landmarks = []
+    for i, vol in enumerate(volumes):
+        mask = masks[i] if masks is not None else None
+        if mask is not None:
+            foreground = vol[mask > 0]
+        else:
+            foreground = vol[vol > 0]
+
+        if foreground.size == 0:
+            logger.warning("Volume %d has no foreground voxels, skipping", i)
+            continue
+
+        landmarks = np.percentile(foreground, list(percentiles))
+        all_landmarks.append(landmarks)
+
+    if not all_landmarks:
+        raise ValueError("No valid volumes for Nyúl fit (all empty foreground)")
+
+    reference = np.median(np.array(all_landmarks), axis=0)
+    logger.info(
+        "Nyúl fit: %d volumes, %d percentiles, reference range [%.2f, %.2f]",
+        len(all_landmarks), len(percentiles), reference[0], reference[-1],
+    )
+    return reference
+
+
+def nyul_transform(
+    volume: np.ndarray,
+    reference_landmarks: np.ndarray,
+    mask: Optional[np.ndarray] = None,
+    percentiles: Tuple[float, ...] = (1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99),
+) -> np.ndarray:
+    """Apply Nyúl piecewise-linear histogram matching to a volume.
+
+    Computes the volume's own percentile landmarks, then maps each
+    foreground voxel intensity from volume landmarks to reference
+    landmarks via piecewise-linear interpolation.
+
+    Only operates on foreground voxels (nonzero mask positions, or all
+    nonzero voxels if mask is None). Background voxels remain at 0.
+    The input array is NOT modified in place.
+
+    Args:
+        volume: 3D array to transform.
+        reference_landmarks: Output of nyul_fit().
+        mask: Optional binary mask.
+        percentiles: Must match those used in nyul_fit().
+
+    Returns:
+        Transformed volume, same shape as input.
+    """
+    out = np.zeros_like(volume, dtype=np.float64)
+
+    if mask is not None:
+        fg_mask = mask > 0
+    else:
+        fg_mask = volume > 0
+
+    foreground = volume[fg_mask]
+    if foreground.size == 0:
+        return out
+
+    # Compute this volume's landmarks
+    vol_landmarks = np.percentile(foreground, list(percentiles))
+
+    # Handle degenerate case: all foreground voxels have the same value
+    if vol_landmarks[0] == vol_landmarks[-1]:
+        out[fg_mask] = reference_landmarks[len(reference_landmarks) // 2]
+        return out
+
+    # Piecewise-linear mapping: volume landmarks → reference landmarks
+    mapped = np.interp(foreground, vol_landmarks, reference_landmarks)
+    out[fg_mask] = mapped
+
+    return out

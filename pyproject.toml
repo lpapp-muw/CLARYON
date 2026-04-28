@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claryon"
-version = "0.12.0"
+version = "0.13.0"
 description = "CLassical-quantum AI for Reproducible Explainable OpeN-source medicine"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "GPL-3.0-or-later"}
 authors = [
     {name = "L. Papp", email = "laszlo.papp@meduniwien.ac.at"},
@@ -17,9 +17,9 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
@@ -37,14 +37,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-quantum = ["pennylane>=0.35"]
+quantum = ["pennylane>=0.44"]
 quantum-qiskit = ["qiskit>=1.0"]
-imaging = ["nibabel>=5.0", "tifffile>=2023.7"]
-radiomics = ["pyradiomics>=3.0"]
+imaging = ["nibabel>=5.0", "tifffile>=2023.7", "hilbertcurve>=2.0"]
+# NOTE: pyradiomics 3.x has a known build-isolation bug: setup.py imports numpy
+# at the top level, which is not available in PEP 517 isolated build environments.
+# `pip install pyradiomics` fails on a clean environment with:
+#     ModuleNotFoundError: No module named 'numpy'
+# Manual install (after claryon is installed):
+#     pip install numpy versioneer
+#     pip install pyradiomics --no-build-isolation
+# Or use scripts/install.sh which automates the full install including pyradiomics.
+# This extra is INTENTIONALLY EXCLUDED from `[all]` so that `pip install -e ".[all]"`
+# does not break for users who don't need radiomics extraction.
+radiomics = ["pyradiomics>=3.0.1"]
 monai = ["monai>=1.3", "torch>=2.0", "torchvision>=0.15"]
 torch = ["torch>=2.0", "torchvision>=0.15"]
 boosting = ["xgboost>=2.0,<3.0", "lightgbm>=4.0", "catboost>=1.2"]
-tabular-dl = ["tabpfn>=0.1"]
+tabular-dl = ["tabpfn>=2.0"]
 explain = ["shap>=0.44", "lime>=0.2"]
 report = ["jinja2>=3.1", "matplotlib>=3.7", "seaborn>=0.13"]
 dev = [
@@ -52,8 +62,10 @@ dev = [
     "pytest-timeout>=2.2",
     "ruff>=0.3",
 ]
+# `radiomics` is intentionally excluded from `all` — see comment above.
+# To install everything including radiomics, use scripts/install.sh.
 all = [
-    "claryon[quantum,imaging,radiomics,torch,boosting,explain,report,dev]",
+    "claryon[quantum,imaging,torch,boosting,tabular-dl,explain,report,dev]",
 ]
 
 [project.scripts]
@@ -66,7 +78,11 @@ include = ["claryon*"]
 testpaths = ["tests"]
 timeout = 300
 addopts = "-x -q"
+markers = [
+    "radiomics: tests requiring the pyradiomics package (skipped when not installed)",
+    "cnn: tests requiring CNN models / torchvision (heavier; skipped on CPU-only smoke runs)",
+]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120

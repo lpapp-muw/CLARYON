@@ -158,13 +158,15 @@ List of models to train. Each entry is a model configuration object.
 
 ### Registered model names
 
-**Tabular (classical):** `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`
+**Tabular (classical):** `xgboost`, `lightgbm`, `catboost`, `mlp`, `tabpfn`, `tabm`, `realmlp`, `modernnca`
 
 **Tabular (quantum, angle-encoded):** `angle_pqk_svm` (uses `type: tabular`)
 
-**Tabular (quantum, amplitude-encoded):** `kernel_svm`, `projected_kernel_svm`, `qcnn_muw`, `qcnn_alt`, `qdc_hadamard`, `quantum_gp`, `qnn`
+**Tabular (quantum, amplitude-encoded):** `kernel_svm`, `projected_kernel_svm`, `qdc_hadamard`, `quantum_gp`, `qnn`
 
 **Imaging:** `cnn_2d`, `cnn_3d`
+
+> **Note (v0.13.0)**: `qcnn_muw` and `qcnn_alt` are **work in progress and not registered**. Source files remain in `claryon/models/quantum/` for ongoing maintainer development. Referencing either of them in a config produces a "Model not registered — skipping" log line. See the WIP notice in `README.md`.
 
 **Example:**
 ```yaml
@@ -178,11 +180,9 @@ models:
   - name: kernel_svm
     type: tabular_quantum
 
-  - name: qcnn_muw
+  - name: quantum_gp
     type: tabular_quantum
     preset: medium
-    params:
-      lr: 0.005
 
   - name: catboost
     type: tabular
@@ -346,10 +346,9 @@ models:
     type: tabular
   - name: kernel_svm
     type: tabular_quantum
-  - name: qcnn_muw
+  - name: quantum_gp
     type: tabular_quantum
-    params:
-      lr: 0.005
+    preset: medium
 
 evaluation:
   metrics: [balanced_accuracy, auc, sensitivity, specificity]

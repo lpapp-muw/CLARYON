@@ -35,8 +35,9 @@ def _import_model_modules() -> None:
         "claryon.models.quantum.kernel_svm",
         "claryon.models.quantum.projected_kernel_svm",
         "claryon.models.quantum.angle_pqk_svm",
-        "claryon.models.quantum.qcnn_muw",
-        "claryon.models.quantum.qcnn_alt",
+        # qcnn_* models are work-in-progress in v0.13.0 and INTENTIONALLY
+        # NOT auto-registered. The source files remain in claryon/models/quantum/
+        # for ongoing development. See README WIP notice.
         "claryon.models.quantum.qdc_hadamard",
         "claryon.models.quantum.quantum_gp",
         "claryon.models.quantum.qnn",

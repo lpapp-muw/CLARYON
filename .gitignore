@@ -19,6 +19,11 @@ ENV/
 *.swo
 *~
 
+# Editor backups (Stata, etc.) — must NOT be committed
+*.s?backup
+*.bak
+*.orig
+
 # Testing
 .pytest_cache/
 .coverage
@@ -35,3 +40,45 @@ catboost_info/
 # OS
 .DS_Store
 Thumbs.db
+
+# Datasets (private, large, license-restricted)
+datasets/prostate_multicenter/
+datasets/hecktor/
+datasets/dlbcl/
+
+# ──────────────────────────────────────────────────────────────────
+# Internal research artifacts — kept LOCAL, not for the public repo
+# ──────────────────────────────────────────────────────────────────
+
+# Internal study planning / phase docs
+docs/PHASE_LOG.md
+docs/phases/
+docs/STUDY_*.md
+docs/PHASE_*.md
+docs/PROJECT_*.md
+docs/DOMAIN_SHIFT_*.md
+docs/CLARYON_QCNN_*.md
+
+# Internal research configs
+configs/Q[0-9]*_*.yaml
+configs/L[0-9]*_*.yaml
+configs/C[0-9]*_*.yaml
+configs/L[12]_*.yaml
+
+launch_L*.sh
+launch_*.sh
+
+# Misplaced files (config_schema.py belongs in claryon/, not configs/)
+configs/config_schema.py
+
+# Maintainer-only project docs (live outside this folder normally;
+# keep ignored if accidentally placed in the repo)
+PROJECT_KNOWLEDGE_BASE.md
+PROJECT_CONTEXT.md
+DOMAIN_SHIFT_STUDY_BRIEF.md
+CLARYON_QCNN_PORT_FIX.md
+CLARYON_QCNN_HANDOFF.md
+WORKLOG.md
+IMPLEMENTATION_PLAN.md
+REQUIREMENTS.md
+COMMANDS.md

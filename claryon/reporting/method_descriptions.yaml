@@ -395,7 +395,6 @@ models:
       \texttt{default.qubit} simulator with backpropagation-based
       gradient computation.
       {{param_text}}
-    cite: "MoradiUnderRevision"
 
   qcnn_alt:
     short: "QCNN (ALT variant)"

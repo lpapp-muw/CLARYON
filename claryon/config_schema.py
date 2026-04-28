@@ -42,6 +42,7 @@ class ImagingDataConfig(BaseModel):
     format: Literal["nifti", "tiff"] = "nifti"
     image_pattern: str = "*"
     mask_pattern: Optional[str] = "*mask*"
+    flatten_order: Literal["rowmajor", "hilbert"] = "rowmajor"
 
 
 class RadiomicsConfig(BaseModel):
@@ -63,7 +64,7 @@ class DataConfig(BaseModel):
 class CVConfig(BaseModel):
     """Cross-validation strategy configuration."""
 
-    strategy: Literal["kfold", "holdout", "nested", "external", "group_kfold"] = "kfold"
+    strategy: Literal["kfold", "holdout", "nested", "external", "group_kfold", "scst", "loco"] = "kfold"
     n_folds: int = Field(default=5, ge=2)
     seeds: List[int] = Field(default_factory=lambda: [42])
     test_size: float = Field(default=0.2, gt=0.0, lt=1.0)
@@ -71,6 +72,8 @@ class CVConfig(BaseModel):
     inner_folds: int = Field(default=3, ge=2)
     test_path: Optional[str] = None
     group_col: Optional[str] = None
+    center_col: Optional[str] = None
+    """Path to center-mapping CSV (for imaging), or column name (for tabular)."""
 
 
 class ModelEntry(BaseModel):

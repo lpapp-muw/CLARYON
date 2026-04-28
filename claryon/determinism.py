@@ -24,10 +24,18 @@ def enforce_determinism(seed: int, threads: Optional[int] = 1) -> None:
         True bit-for-bit determinism across machines/BLAS builds is not
         guaranteed. This function makes runs repeatable on the same machine.
         For best results, call before importing numpy/scipy/sklearn.
+
+        Implementation note: Python ``random.seed`` and ``np.random.seed``
+        are called LAST (after all optional library imports) because some
+        third-party libraries (e.g. PennyLane >= 0.44) have import-time
+        side effects that consume the global random state. If we seeded
+        Python/NumPy first, those imports would silently invalidate the
+        seed on the first call to this function (the imports are cached
+        on subsequent calls, hiding the bug).
     """
     seed = int(seed)
 
-    # Threading controls
+    # Threading controls — environment only, no random state touched.
     if threads is not None:
         t = str(int(threads))
         for var in (
@@ -40,31 +48,42 @@ def enforce_determinism(seed: int, threads: Optional[int] = 1) -> None:
             os.environ.setdefault(var, t)
 
     os.environ.setdefault("PYTHONHASHSEED", str(seed))
+
+    # Trigger optional library imports FIRST so any import-time side effects
+    # (e.g. consumption of Python's global random state) happen BEFORE we
+    # set our seeds.
+    try:
+        import pennylane.numpy as _pnp  # type: ignore[import-untyped]  # noqa: F401
+    except Exception:
+        _pnp = None  # type: ignore[assignment]
+
+    try:
+        import torch as _torch
+    except ImportError:
+        _torch = None  # type: ignore[assignment]
+
+    try:
+        import numpy as _np
+    except ImportError:
+        _np = None  # type: ignore[assignment]
+
+    # Now seed everything in order: Python first, then libraries.
     random.seed(seed)
 
-    # NumPy
-    try:
-        import numpy as np
-        np.random.seed(seed)
-    except ImportError:
-        pass
+    if _np is not None:
+        _np.random.seed(seed)
 
-    # PennyLane numpy (autograd wrapper)
-    try:
-        import pennylane.numpy as pnp  # type: ignore[import-untyped]
-        pnp.random.seed(seed)
-    except Exception:
-        pass
+    if _pnp is not None:
+        try:
+            _pnp.random.seed(seed)
+        except Exception:
+            pass
 
-    # PyTorch
-    try:
-        import torch
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-            torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
-            torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
-    except ImportError:
-        pass
+    if _torch is not None:
+        _torch.manual_seed(seed)
+        if _torch.cuda.is_available():
+            _torch.cuda.manual_seed_all(seed)
+            _torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
+            _torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
 
     logger.debug("Determinism enforced: seed=%d, threads=%s", seed, threads)

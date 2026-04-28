@@ -97,9 +97,9 @@ Computes similarity between patients using a quantum fidelity kernel: the overla
 
 Same Pauli measurement approach as `angle_pqk_svm`, but uses amplitude encoding instead of angle encoding. Proved empirically that amplitude encoding (not the kernel measurement) is the bottleneck for quantum performance on tabular data: `projected_kernel_svm` achieved the same BACC as the fidelity `kernel_svm`. Available for comparative evaluation.
 
-### qcnn_muw (Quantum Convolutional Neural Network --- Moradi et al. Architecture)
+### qcnn_muw (Quantum Convolutional Neural Network)
 
-Inspired by classical convolutional neural networks, this model applies layers of quantum operations that progressively reduce the quantum state to a single prediction. It uses a circuit design from Moradi et al. developed for nuclear medicine imaging biomarker classification.
+Inspired by classical convolutional neural networks, this model applies layers of quantum operations that progressively reduce the quantum state to a single prediction. It uses a hierarchical circuit design suitable for nuclear medicine imaging biomarker classification.
 
 Trains iteratively (like a neural network) with amplitude encoding. Needs >= 100 epochs to converge. For tabular data, consider `angle_pqk_svm` as a faster alternative.
 

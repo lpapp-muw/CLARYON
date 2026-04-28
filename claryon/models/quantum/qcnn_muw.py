@@ -1,4 +1,26 @@
-"""QCNN MUW variant — conv+pool layers with ArbitraryUnitary final block.
+"""QCNN MUW variant — WORK IN PROGRESS, NOT REGISTERED.
+
+⚠️  WORK IN PROGRESS - CLARYON v0.13.0 ⚠️
+
+This module is shipped with CLARYON but is INTENTIONALLY NOT auto-registered
+with the model registry (the @register decorator below is commented out, and
+the module is excluded from claryon/pipeline.py and claryon/inference.py).
+
+This implementation is under active development and has not yet been
+validated for scientific use. A revised implementation will be released in
+a future CLARYON version. Until then:
+
+  - DO NOT use this model for scientific results
+  - DO NOT cite this model in publications
+  - Importing this module triggers a UserWarning at import time
+
+For working amplitude-encoded quantum models in v0.13.0, use:
+    kernel_svm, projected_kernel_svm, qdc_hadamard, quantum_gp, qnn
+
+----------------------------------------------------------------------
+Original module description follows.
+
+QCNN MUW variant — conv+pool layers with ArbitraryUnitary final block.
 
 Ported from [E] pl_qcnn_muw.py. Input X must be amplitude-encoded.
 """
@@ -17,7 +39,24 @@ from ..base import InputType, ModelBuilder
 logger = logging.getLogger(__name__)
 
 
-@register("model", "qcnn_muw")
+# --- WIP quarantine: emit a loud warning if anyone imports this module ---
+import warnings as _warnings  # noqa: E402
+
+_warnings.warn(
+    "claryon.models.quantum.qcnn_muw is WORK IN PROGRESS in CLARYON v0.13.0 "
+    "and is NOT registered with the model registry. This implementation has "
+    "not yet been validated for scientific use. Do not use for scientific "
+    "results or publication. See README WIP notice.",
+    UserWarning,
+    stacklevel=2,
+)
+# --- end WIP quarantine ---
+
+
+# @register("model", "qcnn_muw")  # WIP — see top-of-module banner. Decorator
+# intentionally disabled in v0.13.0. The class definition below is preserved
+# so direct instantiation continues to work for ongoing development by the
+# maintainer.
 class QCNNMuwModel(ModelBuilder):
     """QCNN MUW-style model with conv+pool layers and ArbitraryUnitary.
 

@@ -1,6 +1,7 @@
-"""Cross-validation split generation — k-fold, holdout, nested CV, GroupKFold.
+"""Cross-validation split generation — k-fold, holdout, nested CV, GroupKFold, SCST, LOCO.
 
-Ported from [B] fold_generator.py. Generalized with nested CV and GroupKFold.
+Ported from [B] fold_generator.py. Generalized with nested CV, GroupKFold,
+and center-aware strategies (SCST, LOCO) for multi-center studies.
 """
 from __future__ import annotations
 
@@ -183,6 +184,69 @@ def generate_nested_cv_splits(
     return result
 
 
+def generate_scst_splits(
+    y: np.ndarray,
+    center_ids: np.ndarray,
+) -> List[SplitIndices]:
+    """Single-Center-Train, Single-Center-Test splits.
+
+    For N centers, generates N*(N-1) splits. Each split trains on all
+    samples from one center and tests on all samples from a different center.
+
+    Args:
+        y: Label array (used for consistency, not for stratification).
+        center_ids: Array of center identifiers, same length as y.
+
+    Returns:
+        List of SplitIndices, one per (train_center, test_center) pair.
+    """
+    centers = sorted(np.unique(center_ids))
+    logger.info("SCST: %d centers → %d splits", len(centers), len(centers) * (len(centers) - 1))
+
+    splits = []
+    fold = 0
+    for train_center in centers:
+        for test_center in centers:
+            if train_center == test_center:
+                continue
+            train_idx = np.where(center_ids == train_center)[0]
+            test_idx = np.where(center_ids == test_center)[0]
+            splits.append(SplitIndices(
+                train_idx=train_idx, test_idx=test_idx, fold=fold, seed=0,
+            ))
+            fold += 1
+    return splits
+
+
+def generate_loco_splits(
+    y: np.ndarray,
+    center_ids: np.ndarray,
+) -> List[SplitIndices]:
+    """Leave-One-Center-Out splits.
+
+    For N centers, generates N splits. Each split trains on N-1 centers
+    merged and tests on the held-out center.
+
+    Args:
+        y: Label array (used for consistency, not for stratification).
+        center_ids: Array of center identifiers, same length as y.
+
+    Returns:
+        List of SplitIndices, one per held-out center.
+    """
+    centers = sorted(np.unique(center_ids))
+    logger.info("LOCO: %d centers → %d splits", len(centers), len(centers))
+
+    splits = []
+    for fold, held_out in enumerate(centers):
+        test_idx = np.where(center_ids == held_out)[0]
+        train_idx = np.where(center_ids != held_out)[0]
+        splits.append(SplitIndices(
+            train_idx=train_idx, test_idx=test_idx, fold=fold, seed=0,
+        ))
+    return splits
+
+
 def auto_split(
     y: np.ndarray,
     strategy: str = "kfold",
@@ -190,6 +254,7 @@ def auto_split(
     seed: int = 42,
     test_size: float = 0.2,
     groups: Optional[np.ndarray] = None,
+    center_ids: Optional[np.ndarray] = None,
     outer_folds: int = 5,
     inner_folds: int = 3,
     large_threshold: int = LARGE_DATASET_THRESHOLD,
@@ -201,11 +266,13 @@ def auto_split(
 
     Args:
         y: Label array.
-        strategy: One of "kfold", "holdout", "nested", "group_kfold".
+        strategy: One of "kfold", "holdout", "nested", "group_kfold",
+            "scst", "loco".
         n_folds: Number of folds for k-fold strategies.
         seed: Random seed.
         test_size: Test fraction for holdout.
         groups: Group array for group_kfold.
+        center_ids: Center identifier array for scst/loco strategies.
         outer_folds: Outer folds for nested CV.
         inner_folds: Inner folds for nested CV.
         large_threshold: Sample count threshold for large dataset handling.
@@ -236,5 +303,15 @@ def auto_split(
         # Flatten nested structure to just outer splits for compatibility
         nested = generate_nested_cv_splits(y, outer_folds, inner_folds, seed)
         return [outer for outer, _ in nested]
+
+    if strategy == "scst":
+        if center_ids is None:
+            raise ValueError("center_ids array required for scst strategy")
+        return generate_scst_splits(y, center_ids)
+
+    if strategy == "loco":
+        if center_ids is None:
+            raise ValueError("center_ids array required for loco strategy")
+        return generate_loco_splits(y, center_ids)
 
     raise ValueError(f"Unknown split strategy: {strategy!r}")

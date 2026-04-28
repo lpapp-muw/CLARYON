@@ -676,16 +676,32 @@ class TestRegistry:
         sys.path.insert(0, str(PROJECT_ROOT))
         try:
             import importlib
-            for mod_name in ["claryon.models.classical.xgboost_",
-                             "claryon.models.classical.lightgbm_",
-                             "claryon.models.classical.catboost_",
-                             "claryon.models.classical.mlp_"]:
+            from claryon.registry import _REGISTRY, list_registered
+
+            # (module path, name registered via @register("model", ...))
+            modules_and_names = [
+                ("claryon.models.classical.xgboost_", "xgboost"),
+                ("claryon.models.classical.lightgbm_", "lightgbm"),
+                ("claryon.models.classical.catboost_", "catboost"),
+                ("claryon.models.classical.mlp_", "mlp"),
+            ]
+            # Force a fresh import of each module so the @register decorator
+            # actually fires. This is necessary because:
+            #   (a) tests/test_registry.py wipes _REGISTRY in its autouse
+            #       fixture (correct behaviour for *its* unit tests), and
+            #   (b) plain importlib.import_module() returns the cached
+            #       module object without re-executing its body.
+            # We therefore purge BOTH sys.modules and any existing registry
+            # entry, then re-import. This makes the test robust to the
+            # ordering of preceding tests and to leftover registry state.
+            for mod_name, reg_name in modules_and_names:
+                sys.modules.pop(mod_name, None)
+                _REGISTRY.pop(("model", reg_name), None)
                 try:
-                    mod = importlib.import_module(mod_name)
-                    importlib.reload(mod)
+                    importlib.import_module(mod_name)
                 except ImportError:
                     pass
-            from claryon.registry import list_registered
+
             registered = list_registered("model")
             expected = {"xgboost", "lightgbm", "catboost", "mlp"}
             found = {name.lower().replace("_", "") for name in registered}
@@ -698,18 +714,31 @@ class TestRegistry:
         sys.path.insert(0, str(PROJECT_ROOT))
         try:
             import importlib
-            for mod_name in ["claryon.models.quantum.kernel_svm",
-                             "claryon.models.quantum.qcnn_muw"]:
+            from claryon.registry import _REGISTRY, list_registered
+
+            # NOTE (v0.13.0): qcnn_* modules are intentionally NOT registered
+            # in the default model registry — see tests/test_qcnn_quarantine.py
+            # and the WIP notice in README.md. We probe a representative
+            # registered quantum model (kernel_svm + quantum_gp) instead.
+            modules_and_names = [
+                ("claryon.models.quantum.kernel_svm", "kernel_svm"),
+                ("claryon.models.quantum.quantum_gp", "quantum_gp"),
+            ]
+            # Same self-healing import pattern as test_classical_models_registered
+            # above; see comment there for rationale.
+            for mod_name, reg_name in modules_and_names:
+                sys.modules.pop(mod_name, None)
+                _REGISTRY.pop(("model", reg_name), None)
                 try:
-                    mod = importlib.import_module(mod_name)
-                    importlib.reload(mod)
+                    importlib.import_module(mod_name)
                 except ImportError:
                     pass
-            from claryon.registry import list_registered
+
             registered = list_registered("model")
             registered_lower = [r.lower() for r in registered]
             assert any("kernel" in r or "svm" in r for r in registered_lower), "Kernel SVM not registered"
-            assert any("qcnn" in r or "muw" in r for r in registered_lower), "QCNN MUW not registered"
+            assert any("quantum_gp" in r or "qdc" in r or "qnn" in r for r in registered_lower), \
+                "No registered amplitude-encoded quantum model found"
         except ImportError:
             pytest.skip("Cannot import registry")
 
