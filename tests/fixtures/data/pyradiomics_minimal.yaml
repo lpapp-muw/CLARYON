@@ -1,0 +1,12 @@
+setting:
+  binWidth: 25
+  resampledPixelSpacing:
+  interpolator: sitkBSpline
+  correctMask: true
+  label: 1
+  minimumROIDimensions: 1
+  minimumROISize: 1
+
+featureClass:
+  firstorder:
+  glcm:
