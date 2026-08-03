@@ -30,6 +30,48 @@ def safe_div(a: float, b: float) -> float:
     return float(a / b) if b != 0 else float("nan")
 
 
+def _unique_labels(y_true: np.ndarray, y_pred: np.ndarray) -> list:
+    """Sorted union of the observed true and predicted labels."""
+    return sorted(set(np.unique(y_true)).union(np.unique(y_pred)))
+
+
+def _ovr_counts(cm: np.ndarray, c: int) -> tuple:
+    """One-vs-rest (tp, fn, fp, tn) for class index ``c`` from a K x K CM."""
+    total = int(cm.sum())
+    tp = int(cm[c, c])
+    fn = int(cm[c, :].sum()) - tp
+    fp = int(cm[:, c].sum()) - tp
+    tn = total - tp - fn - fp
+    return tp, fn, fp, tn
+
+
+def _macro_ovr(y_true: np.ndarray, y_pred: np.ndarray, ratio) -> float:
+    """Macro-average a per-class one-vs-rest ratio over all observed classes.
+
+    For 2 classes this reproduces the original binary definition on labels
+    ``[0, 1]`` (one-vs-rest on the positive class 1 is algebraically identical).
+    For K > 2 it macro-averages the per-class one-vs-rest ratio, skipping classes
+    whose denominator is zero (NaN-safe).
+
+    Args:
+        y_true: Ground-truth integer labels.
+        y_pred: Predicted integer labels.
+        ratio: Callable ``(tp, fn, fp, tn) -> float`` producing the metric value.
+
+    Returns:
+        The (binary or macro-averaged) metric value, or NaN when undefined.
+    """
+    labels = _unique_labels(y_true, y_pred)
+    if len(labels) <= 2:
+        labels = [0, 1]
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        return ratio(*_ovr_counts(cm, 1))
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
+    vals = [ratio(*_ovr_counts(cm, c)) for c in range(len(labels))]
+    finite = [v for v in vals if np.isfinite(v)]
+    return float(np.mean(finite)) if finite else float("nan")
+
+
 def select_threshold_balanced_accuracy(
     y_true: np.ndarray,
     prob1: np.ndarray,
@@ -85,34 +127,26 @@ def metric_accuracy(y_true: np.ndarray, y_pred: np.ndarray, **kw: object) -> flo
 
 @register("metric", "sensitivity")
 def metric_sensitivity(y_true: np.ndarray, y_pred: np.ndarray, **kw: object) -> float:
-    """Sensitivity (recall, TPR)."""
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tp, fn = int(cm[1, 1]), int(cm[1, 0])
-    return safe_div(tp, tp + fn)
+    """Sensitivity (recall, TPR). Binary on labels [0, 1]; macro one-vs-rest for K > 2."""
+    return _macro_ovr(y_true, y_pred, lambda tp, fn, fp, tn: safe_div(tp, tp + fn))
 
 
 @register("metric", "specificity")
 def metric_specificity(y_true: np.ndarray, y_pred: np.ndarray, **kw: object) -> float:
-    """Specificity (TNR)."""
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tn, fp = int(cm[0, 0]), int(cm[0, 1])
-    return safe_div(tn, tn + fp)
+    """Specificity (TNR). Binary on labels [0, 1]; macro one-vs-rest for K > 2."""
+    return _macro_ovr(y_true, y_pred, lambda tp, fn, fp, tn: safe_div(tn, tn + fp))
 
 
 @register("metric", "ppv")
 def metric_ppv(y_true: np.ndarray, y_pred: np.ndarray, **kw: object) -> float:
-    """Positive predictive value (precision)."""
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tp, fp = int(cm[1, 1]), int(cm[0, 1])
-    return safe_div(tp, tp + fp)
+    """Positive predictive value (precision). Binary on [0, 1]; macro one-vs-rest for K > 2."""
+    return _macro_ovr(y_true, y_pred, lambda tp, fn, fp, tn: safe_div(tp, tp + fp))
 
 
 @register("metric", "npv")
 def metric_npv(y_true: np.ndarray, y_pred: np.ndarray, **kw: object) -> float:
-    """Negative predictive value."""
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tn, fn = int(cm[0, 0]), int(cm[1, 0])
-    return safe_div(tn, tn + fn)
+    """Negative predictive value. Binary on [0, 1]; macro one-vs-rest for K > 2."""
+    return _macro_ovr(y_true, y_pred, lambda tp, fn, fp, tn: safe_div(tn, tn + fn))
 
 
 @register("metric", "auc")

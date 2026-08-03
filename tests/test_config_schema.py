@@ -44,7 +44,7 @@ reporting:
 def test_valid_yaml_parses(tmp_path):
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(VALID_YAML)
-    config = load_config(cfg_path)
+    config = load_config(cfg_path, check_paths=False)
     assert config.experiment.name == "test_experiment"
     assert config.experiment.seed == 42
     assert len(config.models) == 2
@@ -83,7 +83,7 @@ def test_disabled_models_filtered():
 def test_empty_yaml(tmp_path):
     cfg_path = tmp_path / "empty.yaml"
     cfg_path.write_text("")
-    config = load_config(cfg_path)
+    config = load_config(cfg_path, check_paths=False)
     assert config.experiment.name == "experiment"
 
 

@@ -159,17 +159,55 @@ class ClaryonConfig(BaseModel):
         return [m for m in v if m.enabled]
 
 
-def load_config(path: Union[str, Path]) -> ClaryonConfig:
+def _validate_input_paths(config: ClaryonConfig) -> None:
+    """Verify that every referenced input path exists on disk.
+
+    Input paths are resolved relative to the current working directory (the same
+    resolution the loaders use). Output locations (``results_dir``) are created at
+    run time and are intentionally not checked.
+
+    Args:
+        config: The constructed configuration.
+
+    Raises:
+        FileNotFoundError: If one or more referenced input paths do not exist;
+            the message lists every missing path.
+    """
+    missing: List[str] = []
+    data = config.data
+    if data.tabular is not None and not Path(data.tabular.path).exists():
+        missing.append(f"data.tabular.path -> {data.tabular.path}")
+    if data.imaging is not None and not Path(data.imaging.path).exists():
+        missing.append(f"data.imaging.path -> {data.imaging.path}")
+    if (
+        data.radiomics is not None
+        and data.radiomics.config is not None
+        and not Path(data.radiomics.config).exists()
+    ):
+        missing.append(f"data.radiomics.config -> {data.radiomics.config}")
+    if config.cv.test_path is not None and not Path(config.cv.test_path).exists():
+        missing.append(f"cv.test_path -> {config.cv.test_path}")
+
+    if missing:
+        raise FileNotFoundError(
+            "Config references input paths that do not exist (resolved from cwd "
+            f"'{Path.cwd()}'):\n  " + "\n  ".join(missing)
+        )
+
+
+def load_config(path: Union[str, Path], check_paths: bool = True) -> ClaryonConfig:
     """Load and validate a YAML config file.
 
     Args:
         path: Path to the YAML config file.
+        check_paths: If True (default), verify that referenced input paths exist.
 
     Returns:
         Validated ClaryonConfig instance.
 
     Raises:
-        FileNotFoundError: If path does not exist.
+        FileNotFoundError: If the config file, or any referenced input path, does
+            not exist.
         pydantic.ValidationError: If config is invalid.
     """
     path = Path(path)
@@ -183,5 +221,7 @@ def load_config(path: Union[str, Path]) -> ClaryonConfig:
         raw = {}
 
     config = ClaryonConfig(**raw)
+    if check_paths:
+        _validate_input_paths(config)
     logger.info("Loaded config from %s: experiment=%s", path, config.experiment.name)
     return config

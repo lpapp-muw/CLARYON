@@ -810,9 +810,10 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -
         row: Dict[str, Any] = {"model": model_name}
         for mname in metric_names:
             vals = fold_metrics[mname]
-            if vals:
-                mean_val = float(np.mean(vals))
-                std_val = float(np.std(vals))
+            if vals and np.any(np.isfinite(vals)):
+                # nan-safe: a single undefined fold must not poison the aggregate
+                mean_val = float(np.nanmean(vals))
+                std_val = float(np.nanstd(vals))
                 row[mname] = mean_val
                 row[f"{mname}_std"] = std_val
                 logger.info("  %s %s: %.4f ± %.4f", model_name, mname, mean_val, std_val)
@@ -832,6 +833,14 @@ def stage_evaluate(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -
         summary_path = state.results_dir / "metrics_summary.csv"
         summary_df.to_csv(summary_path, sep=";", index=False, na_rep="NaN")
         logger.info("Wrote metrics summary to %s", summary_path)
+
+        # Confusion matrices + correct multiclass per-class/macro sensitivity & specificity.
+        # Writes <model>/confusion_matrix.csv and a combined confusion_report.json.
+        from .evaluation.confusion import write_confusion_reports
+        try:
+            write_confusion_reports(state.results_dir, list(state.results.keys()))
+        except Exception as e:
+            logger.warning("Confusion report generation failed: %s", e)
 
 
 def stage_explain(config: ClaryonConfig, state: PipelineState, **kwargs: Any) -> None:
